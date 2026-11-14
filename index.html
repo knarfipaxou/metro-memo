@@ -1,0 +1,745 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Métro Mémo"><meta name="theme-color" content="#f3efe6">
+<title>Métro Mémo</title><style>*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden;background:#f3efe6;font-family:-apple-system,"Avenir Next","Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:#2b2b2b;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+#map{position:fixed;inset:0;width:100vw;height:100vh;display:block;touch-action:none}
+button{font:inherit;cursor:pointer}
+.btn{min-height:44px;min-width:44px;padding:8px 16px;border:0;border-radius:22px;background:#fff;color:#2b2b2b;font-weight:700;font-size:15px;box-shadow:0 2px 0 #0002,0 2px 10px #0001}
+.btn:active{transform:translateY(1px);box-shadow:0 1px 0 #0002}
+.btn.dark{background:#2b2b2b;color:#fff}
+.btn.go{background:#22a05a;color:#fff}
+.btn.warn{background:#e8473d;color:#fff}
+.btn.sun{background:#f6c343;color:#3a2a00}
+.btn.big{font-size:22px;padding:14px 34px;border-radius:30px}
+.btn[disabled]{opacity:.4}
+#hud{position:fixed;inset:0;pointer-events:none}
+#hud>*{pointer-events:auto}
+#topL{position:absolute;left:max(10px,env(safe-area-inset-left));top:max(10px,env(safe-area-inset-top));display:flex;flex-direction:column;gap:2px}
+#topL b{font-size:20px;letter-spacing:.5px}
+#topL small{font-size:13px;color:#666;font-weight:600}
+#topR{position:absolute;right:max(10px,env(safe-area-inset-right));top:max(10px,env(safe-area-inset-top));display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;max-width:62vw}
+#revN{font-style:normal;background:#e8473d;color:#fff;border-radius:10px;padding:0 7px;font-size:13px;margin-left:5px}
+#bottom{position:absolute;left:0;right:0;bottom:max(10px,env(safe-area-inset-bottom));display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none}
+#bottom>*{pointer-events:auto}
+#stat{background:#fffd;border-radius:18px;padding:7px 14px;font-weight:600;font-size:14px;text-align:center;max-width:94vw;box-shadow:0 2px 10px #0001}
+#toast{position:absolute;left:50%;top:72px;transform:translateX(-50%);background:#2b2b2bee;color:#fff;border-radius:16px;padding:10px 18px;font-weight:600;font-size:16px;max-width:min(92vw,620px);text-align:center;opacity:0;transition:opacity .25s;pointer-events:none}
+#toast.on{opacity:1}
+.ov{position:fixed;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;text-align:center;z-index:30;background:#f3efe6ee}
+.ov.on{display:flex}
+#title h1{font-size:clamp(40px,8vw,84px);margin:0 10px 4px;font-weight:800;letter-spacing:1px}
+#title h1 span{display:inline-block;width:.75em;height:.75em;border-radius:50%;border:.14em solid #2b2b2b;background:#fff;vertical-align:middle;margin:0 .1em}
+#title p{font-size:clamp(16px,2.6vw,22px);margin:6px 16px;color:#555;font-weight:600}
+#title .lines{display:flex;gap:8px;margin:18px 0}
+#title .lines i{display:block;width:60px;height:12px;border-radius:6px}
+#title .how{font-size:15px;color:#555;max-width:560px;margin-top:18px;line-height:1.45}
+.panel{position:fixed;left:50%;transform:translateX(-50%);top:max(10px,env(safe-area-inset-top));width:min(96vw,920px);max-height:calc(var(--vvh,100vh) - 20px);overflow:auto;-webkit-overflow-scrolling:touch;display:none;z-index:40;background:#fffdf8;border-radius:18px;box-shadow:0 12px 40px #0003;padding:0 0 16px}
+.panel.on{display:block}
+.panel.small{width:min(92vw,560px)}
+.phead{display:flex;align-items:center;gap:10px;padding:12px 64px 12px 16px;color:#fff;background:#2b2b2b;border-radius:18px 18px 0 0;flex-wrap:wrap}
+.phead h2{margin:0;font-size:20px}
+.pbody{padding:10px 16px 0}
+.panel p{margin:6px 0;font-size:16px;line-height:1.4}
+.xbtn{position:absolute;right:10px;top:8px;background:#fff3;color:#fff;box-shadow:none}
+.sicon{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;background:#fff;border:4px solid #2b2b2b;font-weight:800;font-size:14px;color:#2b2b2b;flex:none}
+.sicon.D{border-radius:50%}.sicon.P{border-radius:5px}
+.tag{display:inline-block;padding:2px 10px;border-radius:12px;font-size:13px;font-weight:700;background:#fff3}
+.passes{display:flex;gap:6px;align-items:center;margin:2px 0 6px;flex-wrap:wrap}
+.pip{width:30px;height:30px;border-radius:50%;border:3px solid #ccc;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:#999;background:#fff}
+.pip.done{background:var(--lc);border-color:var(--lc);color:#fff}
+.pip.cur{border-color:var(--lc);color:var(--lc)}
+.board{background:#f1ede4;border-radius:12px;padding:10px;min-height:56px;line-height:1.1;margin:6px 0;font-size:17px}
+.tile{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;margin:3px 2px;padding:6px 9px;border-radius:8px;font-weight:700;background:#fff;color:#2b2b2b;box-shadow:0 2px 0 #0002;vertical-align:middle;min-height:36px}
+.tile.dim{background:#e3ded3;color:#5a5a5a;box-shadow:none}
+.tile.lit{background:var(--lc);color:#fff}
+.tile.minor{background:var(--lc);color:#fff;box-shadow:0 0 0 3px #f6a623}
+.tile .mn{font-size:11px;color:#fff;opacity:.9;font-weight:600}
+.tile.wrong{background:#fff;border:2px solid #e8473d;color:#2b2b2b}
+.tile.wrong s{color:#e8473d;font-size:.85em}
+.tile .rw{color:#1d8a45;font-size:.92em}
+.tile.miss{background:transparent;border:2px dashed #1d8a45;color:#1d8a45;box-shadow:none}
+.tile.extra{background:#fde4e1;color:#c0392b;box-shadow:none}
+.tile.opt{opacity:.5;font-weight:500}
+.tile.pop{animation:tp .35s cubic-bezier(.3,1.6,.5,1) both}
+@keyframes tp{from{transform:scale(.3);opacity:0}to{transform:none;opacity:1}}
+.pun{display:inline-block;font-weight:700;font-size:18px;margin:0 1px;vertical-align:middle;color:#777}
+.br{display:block;height:2px}
+input.gap{font:inherit;font-weight:700;font-size:17px;height:36px;margin:3px 2px;padding:0 6px;border:2px dashed var(--lc);border-radius:8px;background:#fff;color:#2b2b2b;vertical-align:middle;outline:none;-webkit-user-select:text;user-select:text}
+input.gap:focus{border-style:solid;box-shadow:0 0 0 3px #0001}
+textarea,input.txt{width:100%;font:inherit;font-size:18px;line-height:1.35;padding:10px 12px;border:2px solid #d8d2c4;border-radius:12px;background:#fff;color:#1b1b1b;-webkit-user-select:text;user-select:text;resize:vertical;outline:none}
+textarea:focus,input.txt:focus{border-color:#2b2b2b}
+textarea{min-height:110px}
+.symbar{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}
+.symbar button{min-width:44px;min-height:40px;font-size:18px;padding:2px 8px;border-radius:10px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}
+.msg{font-weight:700;font-size:16px;margin:8px 0;min-height:1em}
+.msg.ok{color:#1d8a45}.msg.ko{color:#c0392b}
+.title4{font-size:22px;font-weight:800;margin:8px 0}
+.chip{display:inline-flex;align-items:center;gap:8px;background:#f1ede4;border-radius:22px;padding:5px 12px 5px 6px;margin:3px;font-weight:700;border:0;font-size:15px;color:#2b2b2b}
+.lbls{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0;justify-content:center}
+.lbl{touch-action:none;padding:10px 16px;border-radius:10px;font-weight:800;font-size:15px;color:#fff;background:#2b4a8a;border:3px solid #fff;box-shadow:0 0 0 2px #2b4a8a,0 3px 0 #0003;cursor:grab}
+.lbl.drag{position:fixed;z-index:99;pointer-events:none;transform:scale(1.08) rotate(-2deg);box-shadow:0 0 0 2px #2b4a8a,0 10px 20px #0004}
+.lbl.ghost{opacity:.3}
+.seg{margin:12px auto;max-width:560px;display:flex;align-items:center;gap:0}
+.seg .st{flex:none}
+.seg .tr{flex:1;height:14px;border-radius:7px;background:repeating-linear-gradient(90deg,var(--lc) 0 16px,transparent 16px 26px);position:relative;display:flex;align-items:center;justify-content:center}
+.slot{min-height:56px;min-width:200px;border:3px dashed #999;border-radius:12px;background:#fffdf8;display:flex;align-items:center;justify-content:center;font-weight:700;color:#888;padding:6px;position:relative;z-index:1}
+.slot.hot{border-color:#2b2b2b;background:#fff8d6}
+.slot.good{border:0;background:transparent}
+.seg.built .tr{background:var(--lc)}
+.ftext{background:#f1ede4;border-radius:12px;padding:10px 12px;font-size:16px;line-height:1.45;margin:6px 0;font-weight:500}
+.ftext .o{color:#888;font-style:italic}
+#dTop{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.hearts{font-size:24px;letter-spacing:2px}
+.depart{position:relative;height:30px;margin:10px 0 4px}
+.depart .rail{position:absolute;left:0;right:0;top:12px;height:6px;border-radius:3px;background:#ddd}
+.depart .fill{position:absolute;left:0;top:12px;height:6px;border-radius:3px;background:#22a05a}
+.depart .fill.low{background:#e8473d}
+.depart .train{position:absolute;top:0;font-size:24px;transform:translateX(-50%) scaleX(-1)}
+.depart small{position:absolute;left:0;top:-6px;font-size:12px;color:#888;font-weight:700}
+.bubble{background:#f1ede4;border-radius:14px;padding:10px 14px;font-size:19px;font-weight:700;margin:10px 0 6px}
+.bubble small{display:block;font-size:14px;font-weight:500;color:#666}
+.legend .ln{display:flex;align-items:center;gap:8px;font-weight:800;margin:12px 0 4px;font-size:17px}
+.legend .ln i{display:block;width:34px;height:10px;border-radius:5px}
+.legend .st{display:flex;align-items:center;gap:10px;padding:5px 6px;border-radius:10px;width:100%;background:none;border:0;text-align:left;font-size:15px;color:#2b2b2b}
+.legend .st:active{background:#f1ede4}
+.legend .st.closed{color:#999}
+table.pt{width:100%;border-collapse:collapse;font-size:14px}
+.pt th,.pt td{border-bottom:1px solid #e3ded3;padding:6px 6px;text-align:left;vertical-align:top}
+.pt th{background:#fffdf8;position:sticky;top:-1px}
+.pt td .btn{min-height:32px;font-size:13px;padding:3px 10px;margin:1px}
+.lv{display:inline-block;padding:2px 8px;border-radius:10px;font-weight:700;color:#2b2b2b;font-size:13px}
+.lv0{background:#fbc4bd}.lv1{background:#fddcae}.lv2{background:#fbeea8}.lv3{background:#d5f0b0}.lv4{background:#b6e8c0}.lvn{background:#e3ded3}
+.k-nonsu{color:#c0392b}.k-difficile{color:#b07a00}.k-parcoeur{color:#1d8a45}
+.sum{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px;margin:8px 0}
+.sum div{background:#f1ede4;border-radius:12px;padding:8px 10px;font-weight:600;border-left:6px solid #2b2b2b}
+.big1{font-size:26px;font-weight:800}
+.hide{display:none!important}
+/* carte SVG */
+.crumb{animation:crumb .9s ease-in both}
+@keyframes crumb{to{transform:translateY(60px) rotate(40deg);opacity:0}}
+.pulse{animation:pls 1.2s ease-in-out infinite}
+@keyframes pls{50%{opacity:.25}}
+@media (max-width:700px){.btn{font-size:14px;padding:7px 12px}#topL b{font-size:17px}.board{font-size:15px}.tile{padding:5px 6px;min-height:32px}input.gap{font-size:15px;height:32px}}
+</style></head><body>
+<svg id="map" xmlns="http://www.w3.org/2000/svg"><defs></defs><g id="gBg"></g><g id="gDist"></g><g id="gTrack"></g><g id="gPrev"></g><g id="gTrain"></g><g id="gSt"></g><g id="gPax"></g><g id="gFx"></g></svg>
+<div id="hud" class="hide">
+ <div id="topL"><b>Métro Mémo</b><small id="score"></small></div>
+ <div id="topR"><button id="bRev" class="btn sun hide">☀️ Service du matin<i id="revN">0</i></button><button id="bPlan" class="btn">🗺️ Plan</button><button id="bSnd" class="btn">🔊</button><button id="bPar" class="btn">🔒 Parent</button></div>
+ <div id="bottom"><div id="stat"></div><div class="row" style="justify-content:center;margin:0"><button id="bDuel" class="btn dark hide">🎫 Contrôleur</button></div></div>
+ <div id="toast"></div>
+</div>
+<div id="title" class="ov on">
+ <h1>Métr<span></span> Mém<span></span></h1>
+ <p>Ouvre les stations mot à mot. Trace les lignes. Passe le contrôle.</p>
+ <div class="lines"><i style="background:#e8682a"></i><i style="background:#2f80d1"></i><i style="background:#22a05a"></i><i style="background:#8e4fc4"></i></div>
+ <button id="bPlay" class="btn big dark">Monter à bord</button>
+ <div class="how">Touche une station grise pour l'ouvrir.<br>Glisse ton doigt d'une station ouverte à une autre pour tracer une voie.</div>
+</div>
+<div id="forge" class="panel">
+ <div class="phead" id="fHead"><span id="fIcon" class="sicon"></span><h2 id="fTitle"></h2><span class="tag" id="fType"></span></div>
+ <button class="btn xbtn" data-close="forge">✖</button>
+ <div class="pbody">
+ <div class="passes" id="fPasses"></div>
+ <p id="fInstr"></p>
+ <div class="board" id="fBoard"></div>
+ <div id="fTyping"><textarea id="fText" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Tape la fiche ici…"></textarea></div>
+ <div class="symbar" id="fSym"></div>
+ <div class="msg" id="fMsg"></div>
+ <div class="row"><button id="fGo" class="btn dark">🎟️ Composter</button><button id="fAgain" class="btn hide">🔁 Recommencer</button><button id="fNext" class="btn go hide">Passe suivante ➜</button></div>
+ </div>
+</div>
+<div id="link" class="panel">
+ <div class="phead" id="lkHead"><h2>🚧 Nouvelle voie</h2></div>
+ <button class="btn xbtn" data-close="link">✖</button>
+ <div class="pbody">
+ <p><b>1.</b> Quel genre de lien ? Glisse le bon panneau sur la voie.</p>
+ <div class="seg" id="lkSeg"><span class="st" id="lkA"></span><div class="tr"><div class="slot" id="lkSlot">Pose un panneau ici</div></div><span class="st" id="lkB"></span></div>
+ <div id="lkNames" style="text-align:center;font-size:14px;color:#666"></div>
+ <div class="lbls" id="lkLabels"></div>
+ <div id="lkStep2" class="hide"><p><b>2.</b> <span id="lkQ"></span></p><input id="lkIn" class="txt" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"><div class="row"><button id="lkOk" class="btn go">🚆 Ouvrir la voie</button></div></div>
+ <div class="msg" id="lkMsg"></div>
+ </div>
+</div>
+<div id="duel" class="panel">
+ <div class="phead" id="dHeadBar"><h2 id="dHead"></h2></div>
+ <button class="btn xbtn" id="dQuit">✖</button>
+ <div class="pbody">
+ <div id="dTop"><span class="hearts" id="dHearts"></span><b id="dCount"></b></div>
+ <div class="bubble" id="dBubble"></div>
+ <div class="depart" id="dTime"><div class="rail"></div><div class="fill"></div><div class="train">🚆</div><small>Départ du train</small></div>
+ <textarea id="dIn" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Tape toute la fiche…"></textarea>
+ <div class="symbar" id="dSym"></div>
+ <div class="board hide" id="dRes"></div>
+ <div class="msg" id="dMsg"></div>
+ <div class="row"><button id="dGo" class="btn dark">🎫 Montrer mon billet</button><button id="dNext" class="btn go hide">Continuer ➜</button></div>
+ </div>
+</div>
+<div id="plan" class="panel">
+ <div class="phead"><h2>🗺️ Plan du métro</h2></div>
+ <button class="btn xbtn" data-close="plan">✖</button>
+ <div class="pbody legend"><p>Rond = définition. Carré = propriété. Le texte d'une station s'affiche après avoir passé le contrôle de sa ligne.</p><div id="planBody"></div><div id="planText"></div></div>
+</div>
+<div id="card" class="panel small">
+ <div class="phead" id="cHead"><span id="cIcon" class="sicon"></span><h2 id="cTitle"></h2></div>
+ <button class="btn xbtn" data-close="card">✖</button>
+ <div class="pbody" id="cBody"></div>
+</div>
+<div id="gate" class="panel small">
+ <div class="phead"><h2>🔒 Espace parent</h2></div>
+ <button class="btn xbtn" data-close="gate">✖</button>
+ <div class="pbody"><p id="gQ"></p><input id="gIn" class="txt" inputmode="numeric" autocomplete="off"><div class="row"><button id="gOk" class="btn dark">Entrer</button></div><div class="msg ko" id="gMsg"></div></div>
+</div>
+<div id="parent" class="panel">
+ <div class="phead"><h2>👨 Espace parent</h2></div>
+ <button class="btn xbtn" data-close="parent">✖</button>
+ <div class="pbody" id="pBody"></div>
+</div>
+<div id="pop" class="panel small">
+ <div class="phead"><h2 id="popT"></h2></div>
+ <div class="pbody"><div id="popB"></div><div class="row" id="popBtns"></div></div>
+</div>
+
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const GAME_NAME="Métro Mémo";
+/* ================= FICHES (textes exacts du cahier) =================
+   Entre accolades : partie facultative, affichée mais non exigée. */
+const FICHES={
+1:{t:"D",title:"Angles adjacents",txt:"Deux angles sont adjacents s'ils ont le même sommet, un côté commun et qu'ils sont situés de part et d'autre de ce côté commun."},
+2:{t:"P",title:"Addition de deux angles adjacents",txt:"Si AOB et BOC sont adjacents alors : AOC = AOB + BOC {(égalité avec les mesures des angles)}."},
+3:{t:"D",title:"Bissectrice",txt:"La bissectrice d'un angle est la demi-droite qui partage un angle en 2 angles adjacents de même mesure."},
+4:{t:"P",title:"Mesures des angles formés par une bissectrice",txt:"Si [OV) est la bissectrice de UOW, alors : UOV = VOW = UOW ÷ 2 {(égalités de mesures)}."},
+5:{t:"D",title:"Angles opposés par le sommet",txt:"Deux angles ayant même sommet et dont les côtés sont des demi-droites dans le prolongement l'une de l'autre sont opposés par le sommet."},
+6:{t:"P",title:"Mesure des angles opposés par le sommet",txt:"Deux angles opposés par le sommet ont la même mesure."},
+7:{t:"D",title:"Droite sécante à deux autres droites",txt:"Une droite qui coupe deux autres droites en deux points distincts est sécante à ces deux droites."},
+8:{t:"D",title:"Angles alternes-internes",txt:"Deux droites coupées par une sécante définissent des angles alternes-internes : • Ils ont pour sommet les deux points d'intersection. • Les deux angles sont situés à l'intérieur {(entre les deux droites)}. • Ils sont de part et d'autre de la sécante."},
+9:{t:"D",title:"Angles correspondants",txt:"Deux droites coupées par une sécante définissent des angles correspondants : • Ils ont pour sommet les deux points d'intersection. • L'un est à l'intérieur et l'autre à l'extérieur des deux droites. • Ils sont situés du même côté de la sécante."},
+10:{t:"P",title:"Droites parallèles et angles alternes-internes",txt:"Si deux droites parallèles sont coupées par une sécante alors les angles alternes-internes formés ont la même mesure."},
+11:{t:"P",title:"Droites parallèles et angles correspondants",txt:"Si deux droites parallèles sont coupées par une sécante alors les angles correspondants formés ont la même mesure."},
+12:{t:"D",title:"Angles complémentaires",txt:"Deux angles sont complémentaires si la somme de leurs mesures vaut 90°."},
+13:{t:"D",title:"Angles supplémentaires",txt:"Deux angles sont supplémentaires si la somme de leurs mesures vaut 180°."},
+14:{t:"D",title:"Réciproque d'une propriété",txt:"Une propriété s'écrit souvent sous la forme : « si A est vrai alors B est vrai ». La réciproque est la phrase obtenue en échangeant l'hypothèse et la conclusion : « si B est vrai alors A est vrai ». {Attention : la réciproque n'est pas forcément vraie !}"},
+15:{t:"P",title:"Angles alternes-internes égaux et parallélisme",txt:"{Soit deux droites coupées par une sécante.} Si les angles alternes-internes formés sont de même mesure, alors les deux droites sont parallèles."},
+16:{t:"P",title:"Angles correspondants égaux et parallélisme",txt:"{Soit deux droites coupées par une sécante.} Si les angles correspondants formés sont de même mesure, alors les deux droites sont parallèles."},
+17:{t:"P",title:"Somme des angles d'un triangle",txt:"Dans tout triangle {ABC}, la somme des mesures des angles vaut 180°. {CAB + ABC + BCA = 180°}"},
+18:{t:"P",title:"Triangle rectangle",txt:"Un triangle rectangle possède un angle de mesure égale à 90° et la somme des mesures des deux autres angles vaut 90°."},
+19:{t:"P",title:"Triangle isocèle",txt:"Un triangle isocèle a ses angles à la base de même mesure. {BAC = 180° − ABC × 2 et ABC = BCA = (180° − BAC) ÷ 2}"},
+20:{t:"P",title:"Triangle équilatéral",txt:"Un triangle équilatéral a ses angles de même mesure."},
+21:{t:"D",title:"Nombre relatif, signe et valeur absolue",txt:"Un nombre relatif est un nombre défini par : • un signe : « − » pour les nombres négatifs, « + » pour les nombres positifs ; • sa valeur absolue, qui donne sa distance par rapport au nombre 0. Zéro est à la fois positif et négatif."},
+22:{t:"D",title:"Droite graduée, origine, abscisse d'un point",txt:"Une droite graduée est un axe muni : • d'une origine (le point O) ; • d'une unité (pour les graduations) ; • d'un sens (dans lequel les nombres grandissent). L'abscisse d'un point est le nombre relatif qui repère sa position sur la droite graduée : si le point H a pour abscisse −3, on le note H(−3)."}
+};
+const WORLDS=[
+ {id:"croix",name:"Ligne Croix",short:"Croix",sub:"Deux droites qui se croisent",css:"#e8682a",fiches:[5,6],box:[50,70,410,220]},
+ {id:"ligne",name:"Ligne Droite",short:"Droite",sub:"Des angles côte à côte",css:"#2f80d1",fiches:[1,13,12,3,2,4],box:[530,40,440,420]},
+ {id:"rails",name:"Ligne Rails",short:"Rails",sub:"Deux droites et une sécante",css:"#22a05a",fiches:[7,8,9,14,10,11,15,16],box:[40,465,770,300]},
+ {id:"tri",name:"Ligne Triangle",short:"Triangle",sub:"Trois côtés, trois angles",css:"#8e4fc4",fiches:[17,18,19,20],box:[560,775,425,215]},
+ {id:"outils",name:"Ligne Boîte à outils",short:"Outils",sub:"Bonus : nombres relatifs",css:"#b07a2a",fiches:[21,22],box:[50,800,400,160],bonus:true}
+];
+const POS={5:[150,190],6:[350,190],1:[610,140],2:[800,140],3:[610,280],4:[800,280],12:[650,400],13:[880,400],7:[100,610],8:[250,525],9:[250,700],10:[410,525],11:[410,700],15:[570,525],16:[570,700],14:[730,612],17:[630,875],18:[825,830],19:[910,905],20:[760,945],21:[140,890],22:[340,890]};
+const FW={};WORLDS.forEach((w,i)=>w.fiches.forEach(f=>FW[f]=i));
+/* ================= GRAPHE DES LIENS =================
+   t : def = définition utilisée, rec = réciproque, jum = phrases jumelles, cas = cas particulier */
+const LTYPES={
+ def:{name:"📘 Définition utilisée",why:"Une définition utilisée : un mot expliqué dans la première fiche sert dans la deuxième."},
+ rec:{name:"🔁 Réciproque",why:"Une réciproque échange le « si » et le « alors » d'une propriété."},
+ jum:{name:"👯 Phrases jumelles",why:"Des phrases jumelles sont presque pareilles. Un seul mot change."},
+ cas:{name:"🔍 Cas particulier",why:"Un cas particulier applique une règle générale à une figure spéciale."}
+};
+const LINKS=[
+ {a:5,b:6,t:"def",kw:["oppose"]},
+ {a:1,b:2,t:"def",kw:["adjacent"]},
+ {a:1,b:3,t:"def",kw:["adjacent"]},
+ {a:3,b:4,t:"def",kw:["bissectrice"]},
+ {a:12,b:13,t:"jum",kw:["complementaire","supplementaire","90","180"]},
+ {a:7,b:8,t:"def",kw:["secante"]},
+ {a:7,b:9,t:"def",kw:["secante"]},
+ {a:8,b:10,t:"def",kw:["alternes internes","alterne"]},
+ {a:9,b:11,t:"def",kw:["correspondant"]},
+ {a:10,b:11,t:"jum",kw:["alterne","correspondant"]},
+ {a:10,b:15,t:"rec",kw:["parallele"]},
+ {a:11,b:16,t:"rec",kw:["parallele"]},
+ {a:14,b:15,t:"def",kw:["10"],exact:true,q:"La fiche 15 est la réciproque de quelle fiche ? Tape son numéro."},
+ {a:14,b:16,t:"def",kw:["11"],exact:true,q:"La fiche 16 est la réciproque de quelle fiche ? Tape son numéro."},
+ {a:17,b:18,t:"cas",kw:["90"],q:"Dans un triangle rectangle, combien vaut la somme des deux autres angles ?"},
+ {a:17,b:19,t:"cas",kw:["base"],q:"Dans un triangle isocèle, quels angles ont la même mesure ? Les angles à la …"},
+ {a:17,b:20,t:"cas",kw:["60"],q:"Dans un triangle équilatéral, combien mesure chaque angle ?"},
+ {a:21,b:22,t:"def",kw:["relatif"]}
+];
+LINKS.forEach(L=>{L.key=L.a+"-"+L.b;L.w=FW[L.a];});
+function linkQ(L){if(L.q)return L.q;
+ if(L.t==="def")return `Quel mot défini dans la fiche ${L.a} est utilisé dans la fiche ${L.b} ?`;
+ if(L.t==="rec")return `Que permet de prouver la fiche ${L.b} ? Les deux droites sont …`;
+ if(L.t==="jum")return "Les deux phrases sont presque pareilles. Tape un mot qui change.";
+ return "Quel est le cas particulier ?";}
+const findLink=(a,b)=>LINKS.find(L=>(L.a===a&&L.b===b)||(L.a===b&&L.b===a));
+/* ================= MOTEUR DE TEXTE ================= */
+const stripAcc=s=>s.normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+const PUN=/[«»"“”•…;:!?,.()\[\]]/g;
+const SYMS=new Set(["=","+","÷","×","−","⇄"]);
+const HYPH=[];
+(function(){const seen=new Set();for(const k in FICHES){(FICHES[k].txt.match(/[A-Za-zÀ-ÿ]+-[A-Za-zÀ-ÿ]+/g)||[]).forEach(w=>{const l=w.toLowerCase();if(!seen.has(l)){seen.add(l);const p=l.split("-");HYPH.push({re:new RegExp("(^|[^A-Za-zÀ-ÿ])"+p[0]+"[\\s\\-]+"+p[1]+"(?=$|[^A-Za-zÀ-ÿ])","gi"),w:l});}});}})();
+function prep(str,user){
+ let s=str.replace(/[’‘`´]/g,"'").replace(/\u00a0/g," ").replace(/\n/g," ");
+ if(user){
+  s=s.replace(/(\d)\s*(°|degr[eé]s?(?![a-z])|deg(?![a-z]))/gi,"$1°");
+  for(const h of HYPH)s=s.replace(h.re,"$1"+h.w);
+  s=s.replace(/[–—]/g,"-").replace(/-(?=\d)/g,"−").replace(/(^|\s)-(?=\s|$)/g,"$1−");
+  s=s.replace(/(\S)\s*\/\s*(?=\d)/g,"$1 ÷ ").replace(/\*/g," × ");
+ }
+ s=s.replace(/(^|[^A-Za-zÀ-ÿ])(qu|[cdjlmnst])'(?=[A-Za-zÀ-ÿ])/gi,"$1$2' ");
+ s=s.replace(/([=+÷×⇄])/g," $1 ").replace(/\s−\s/g," − ").replace(/«/g,"« ").replace(/»/g," »");
+ return s;
+}
+function tokenize(str,user){
+ const out=[];let opt=false;
+ const segs=user?[str.replace(/[{}]/g,"")]:str.split(/([{}])/);
+ for(const seg of segs){
+  if(seg==="{"){opt=true;continue}if(seg==="}"){opt=false;continue}
+  for(const raw of prep(seg,user).split(/\s+/)){
+   if(!raw)continue;
+   const core=raw.replace(PUN,"");
+   if(!core){out.push({d:raw,p:1,o:opt});continue}
+   let n=core.toLowerCase();
+   if(n==="/")n="÷";else if(n==="*"||n==="x")n="×";else if(n==="-")n="−";
+   else if(n==="deux")n="2";else if(n==="trois")n="3";
+   const sym=SYMS.has(n);
+   const name=/^[A-Z]{2,3}$/.test(core)||/^[A-Z]−?\d/.test(core)||/^[A-Z]$/.test(core);
+   out.push({d:raw,c:core,n,l:stripAcc(n),o:opt,sym,name});
+  }
+ }
+ return out;
+}
+function lev(a,b){if(Math.abs(a.length-b.length)>1)return 9;const m=a.length,n=b.length;let p=Array.from({length:n+1},(_,j)=>j);
+ for(let i=1;i<=m;i++){const c=[i];for(let j=1;j<=n;j++)c[j]=Math.min(p[j]+1,c[j-1]+1,p[j-1]+(a[i-1]===b[j-1]?0:1));p=c}return p[n];}
+/* 2 = juste, 1 = juste avec une petite faute signalée, 0 = faux */
+function eqTok(r,u){
+ if(r.n===u.n)return 2;
+ if(r.l===u.l)return 1;
+ const rl=r.l.replace(/°/g,""),ul=u.l.replace(/°/g,"");
+ if(rl===ul&&/\d/.test(rl))return 1;
+ if(r.l.length>=5&&u.l.length>=4&&lev(r.l,u.l)<=1)return 1;
+ return 0;
+}
+function minorWhy(r,u){if(r.l===u.l)return "accent";if(r.l.replace(/°/g,"")===u.l.replace(/°/g,""))return "le °";return "orthographe";}
+function diff(refT,usrT){
+ const R=refT.filter(t=>!t.p),U=usrT.filter(t=>!t.p);
+ const m=R.length,n=U.length,S=[];for(let i=0;i<=m;i++)S.push(new Float32Array(n+1));
+ for(let i=m-1;i>=0;i--)for(let j=n-1;j>=0;j--){const e=eqTok(R[i],U[j]);S[i][j]=Math.max(S[i+1][j],S[i][j+1],e?S[i+1][j+1]+(e===2?1:.8):0);}
+ const raw=[];let i=0,j=0;
+ while(i<m&&j<n){const e=eqTok(R[i],U[j]);
+  if(e&&Math.abs(S[i][j]-(S[i+1][j+1]+(e===2?1:.8)))<1e-4){raw.push({k:e===2?"ok":"mn",r:R[i],u:U[j]});i++;j++;}
+  else if(S[i+1][j]>=S[i][j+1]){raw.push({k:"mi",r:R[i]});i++;}
+  else{raw.push({k:"ex",u:U[j]});j++;}}
+ while(i<m)raw.push({k:"mi",r:R[i++]});while(j<n)raw.push({k:"ex",u:U[j++]});
+ // fusion manquant + en trop = mot faux à la même place
+ const ops=[];let run=[];
+ const flush=()=>{const mi=run.filter(o=>o.k==="mi"&&!o.r.o),ex=run.filter(o=>o.k==="ex");
+  let a=0;for(const o of run){if(o.k==="mi"&&o.r.o){ops.push({k:"op",r:o.r});continue}
+   if(o.k==="mi"){const idx=mi.indexOf(o);if(idx<ex.length){ops.push({k:"wr",r:o.r,u:ex[idx].u});}else ops.push(o);}
+   else{const idx=ex.indexOf(o);if(idx>=mi.length)ops.push(o);}}
+  run=[];};
+ for(const o of raw){if(o.k==="mi"||o.k==="ex")run.push(o);else{flush();ops.push(o);}}flush();
+ let err=0,minor=0;for(const o of ops){if(o.k==="wr"||o.k==="mi"||o.k==="ex")err++;if(o.k==="mn")minor++;}
+ return {ops,err,minor,ok:err===0&&n>0,n};
+}
+const REF={};for(const k in FICHES)REF[k]=tokenize(FICHES[k].txt,false);
+const K1=new Set(["si","alors","paralleles","secante","alternes-internes","meme","mesure","180°"]);
+const K2=new Set(["correspondants","adjacents","opposes","sommet","somme","90°","bissectrice","complementaires","supplementaires","reciproque","triangle","rectangle","isocele","equilateral","interieur","exterieur","cote","commun","prolongement","distincts","coupe","coupees","definissent","intersection","demi-droite","demi-droites","base","mesures","angles","droites","hypothese","conclusion","echangeant","partage","valeur","absolue","origine","unite","sens","abscisse","signe","relatif","droite","points","vaut","formes","proposition","propriete","possede","tout"]);
+const STOP=new Set(["le","la","les","de","des","du","un","une","et","a","en","d'","l'","s'","qu'","qui","ces","sa","ses","leur","leurs","par","ont","est","sont","ils","il","dont","on","se","sur","dans","pour","ce","au","aux"]);
+function erasable(t){return !(t.p||t.o||t.sym||t.name||/^\d+$/.test(t.n)&&false);}
+function pickGaps(f,pass,seed){
+ const T=REF[f],idx=[];T.forEach((t,i)=>{if(erasable(t))idx.push(i)});
+ const r=rng(f*977+pass*31+seed*7+1);
+ const pr=i=>{const t=T[i];let p=K1.has(t.l)?300:K2.has(t.l)?200:STOP.has(t.l)?10:50+t.l.length*2;return p+r()*25;};
+ const k=pass===2?Math.max(1,Math.round(.25*idx.length)):Math.max(2,Math.round(.6*idx.length));
+ return new Set(idx.map(i=>[i,pr(i)]).sort((a,b)=>b[1]-a[1]).slice(0,k).map(a=>a[0]));
+}
+function reqWords(f){return REF[f].filter(t=>!t.p&&!t.o).length;}
+function rng(seed){let s=(seed>>>0)||1;return()=>{s^=s<<13;s>>>=0;s^=s>>>17;s^=s<<5;s>>>=0;return s/4294967296}}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function ficheHTML(f){return esc(FICHES[f].txt).replace(/\{([^}]*)\}/g,'<span class="o">$1</span>').replace(/ • /g,"<br>• ");}
+
+/* ================= SAUVEGARDE ET RÉVISIONS ================= */
+const SKEY="metroMemo_v1";
+let S;
+try{S=JSON.parse(localStorage.getItem(SKEY))||{}}catch(e){S={}}
+S.f=S.f||{};S.links=S.links||{};S.boss=S.boss||{};S.unlocked=S.unlocked||1;S.world=S.world||0;S.log=S.log||[];S.stats=S.stats||{badLinks:0};S.riders=S.riders||0;
+if(S.sound===undefined)S.sound=true;
+function save(){try{localStorage.setItem(SKEY,JSON.stringify(S))}catch(e){}}
+function dstr(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+const today=()=>dstr(new Date());
+function addDays(n){const d=new Date();d.setDate(d.getDate()+n);return dstr(d)}
+const INT=[1,3,7,14,28];
+const LVNAME=["À revoir","Fragile","En cours","Solide","Par cœur"];
+function FS(f){return S.f[f]||(S.f[f]={pass:1,forged:false,level:0,next:null,errF:0,errB:0,errR:0,minor:0,last:null,papa:[],seed:0});}
+function logEv(f,type,ok){S.log.push({d:today(),f,type,ok});if(S.log.length>600)S.log.splice(0,S.log.length-600);}
+function schedule(f,ok){const s=FS(f);s.last=today();
+ if(!ok){s.level=0;s.next=addDays(1);}
+ else{const due=!s.next||s.next<=today();if(due){s.level=Math.min(4,s.level+1);s.next=addDays(INT[s.level]);}}
+ save();}
+function papaNote(f,k){const s=FS(f);s.papa.push({d:today(),k});s.last=today();
+ if(k==="nonsu"){s.level=0;s.next=addDays(1);}
+ else if(k==="difficile"){s.level=1;s.next=addDays(3);}
+ else{s.level=Math.max(2,Math.min(4,s.level+1));s.next=addDays(INT[s.level]);}
+ logEv(f,"papa:"+k,k!=="nonsu");save();}
+function dueList(){const t=today();return Object.keys(S.f).map(Number).filter(f=>S.f[f].forged&&S.f[f].next&&S.f[f].next<=t).sort((a,b)=>S.f[a].level-S.f[b].level||a-b);}
+function worldState(i){const w=WORLDS[i];const forged=w.fiches.filter(f=>FS(f).forged).length;const L=LINKS.filter(l=>l.w===i);const lk=L.filter(l=>S.links[l.key]).length;
+ return {forged,n:w.fiches.length,links:lk,nl:L.length,awake:forged===w.fiches.length&&lk===L.length,beaten:!!S.boss[w.id],unlocked:i<S.unlocked};}
+
+
+/* ================= SONS (WebAudio, calmes) ================= */
+const AU={ctx:null,master:null,
+ init(){if(this.ctx)return;try{const C=window.AudioContext||window.webkitAudioContext;this.ctx=new C();this.master=this.ctx.createGain();this.master.gain.value=.45;this.master.connect(this.ctx.destination);}catch(e){}},
+ resume(){if(this.ctx&&this.ctx.state!=="running")this.ctx.resume();},
+ tone(f,d,type="sine",vol=.2,f2=null,delay=0){if(!this.ctx||!S.sound)return;const t=this.ctx.currentTime+delay,o=this.ctx.createOscillator(),g=this.ctx.createGain();o.type=type;o.frequency.setValueAtTime(f,t);if(f2)o.frequency.exponentialRampToValueAtTime(f2,t+d);g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(vol,t+.01);g.gain.exponentialRampToValueAtTime(.0001,t+d);o.connect(g);g.connect(this.master);o.start(t);o.stop(t+d+.03);},
+ noise(d,vol=.2,freq=1200,type="bandpass",delay=0){if(!this.ctx||!S.sound)return;const t=this.ctx.currentTime+delay,len=Math.max(1,Math.floor(this.ctx.sampleRate*d)),b=this.ctx.createBuffer(1,len,this.ctx.sampleRate),a=b.getChannelData(0);for(let i=0;i<len;i++)a[i]=(Math.random()*2-1)*(1-i/len);const s=this.ctx.createBufferSource();s.buffer=b;const fl=this.ctx.createBiquadFilter();fl.type=type;fl.frequency.value=freq;const g=this.ctx.createGain();g.gain.value=vol;s.connect(fl);fl.connect(g);g.connect(this.master);s.start(t);}
+};
+const PENTA=[523,587,659,784,880,1047,1175,1319];
+let lastPlink=0;
+const SND={
+ click(){AU.tone(1400,.04,"sine",.08)},
+ tile(i=0){AU.tone(PENTA[i%8],.12,"sine",.07,null,i*.05)},
+ miss(i=0){AU.tone(220,.12,"triangle",.07,180,i*.05)},
+ good(){[659,784,1047].forEach((f,i)=>AU.tone(f,.22,"sine",.13,null,i*.1))},
+ chime(){[523,659,784,1047,1319].forEach((f,i)=>AU.tone(f,.5,"sine",.11,null,i*.12));AU.tone(262,.9,"triangle",.06,null,.1)},
+ bad(){AU.tone(330,.2,"triangle",.12,250);AU.tone(247,.3,"triangle",.1,200,.15)},
+ lay(i=0){AU.tone(1800,.03,"square",.03,null,i*.05)},
+ crumble(){for(let i=0;i<6;i++)AU.noise(.12,.18,700+i*120,"bandpass",i*.07);AU.tone(150,.4,"triangle",.06,70)},
+ open(){AU.tone(392,.25,"sine",.12);AU.tone(587,.4,"sine",.12,null,.18)},
+ plink(){const n=performance.now();if(n-lastPlink<120)return;lastPlink=n;AU.tone(PENTA[Math.random()*8|0]*2,.15,"sine",.05)},
+ whistle(){AU.tone(1568,.18,"sine",.1);AU.tone(1568,.35,"sine",.1,1480,.22)},
+ tick(){AU.tone(1000,.03,"sine",.06)},
+ hit(){[784,988,1175].forEach((f,i)=>AU.tone(f,.15,"sine",.1,null,i*.06))},
+ hurt(){AU.tone(440,.15,"triangle",.12,300);AU.tone(330,.25,"triangle",.1,220,.12)},
+ win(){[523,659,784,1047,784,1047,1319].forEach((f,i)=>AU.tone(f,.3,"sine",.12,null,i*.13))},
+ lose(){[523,466,415,349].forEach((f,i)=>AU.tone(f,.35,"triangle",.1,null,i*.2))},
+ alert(){AU.tone(880,.12,"sine",.08);AU.tone(660,.18,"sine",.08,null,.13)}
+};
+/* ================= CARTE SVG ================= */
+const NS="http://www.w3.org/2000/svg",SVG=$("map");
+function el(tag,at,parent){const e=document.createElementNS(NS,tag);for(const k in at)e.setAttribute(k,at[k]);if(parent)parent.appendChild(e);return e;}
+const R0=24;const lineOf=f=>WORLDS[FW[f]];
+const isOpen=f=>FS(f).forged;const lineUnlocked=f=>FW[f]<S.unlocked;
+function routePts(A,B){const dx=B[0]-A[0],dy=B[1]-A[1],ax=Math.abs(dx),ay=Math.abs(dy);const M=ax>=ay?[A[0]+Math.sign(dx)*(ax-ay),A[1]]:[A[0],A[1]+Math.sign(dy)*(ay-ax)];return [A,M,B];}
+const ptsStr=p=>p.map(q=>q[0].toFixed(1)+","+q[1].toFixed(1)).join(" ");
+function polyLen(p){let L=0;for(let i=1;i<p.length;i++)L+=Math.hypot(p[i][0]-p[i-1][0],p[i][1]-p[i-1][1]);return L;}
+function pointAt(p,d){for(let i=1;i<p.length;i++){const s=Math.hypot(p[i][0]-p[i-1][0],p[i][1]-p[i-1][1]);if(d<=s||i===p.length-1){const k=s?Math.min(1,d/s):0;return [p[i-1][0]+(p[i][0]-p[i-1][0])*k,p[i-1][1]+(p[i][1]-p[i-1][1])*k,Math.atan2(p[i][1]-p[i-1][1],p[i][0]-p[i-1][0])];}d-=s;}return [p[0][0],p[0][1],0];}
+let PORTRAIT=false;
+function layout(){PORTRAIT=window.innerHeight>window.innerWidth*1.05;SVG.setAttribute("viewBox",PORTRAIT?"-20 -175 1040 1350":"-30 -45 1060 1070");SVG.setAttribute("preserveAspectRatio","xMidYMid meet");
+ const vv=window.visualViewport;document.documentElement.style.setProperty("--vvh",(vv?vv.height:window.innerHeight)+"px");}
+window.addEventListener("resize",layout);if(window.visualViewport)visualViewport.addEventListener("resize",layout);layout();
+const G={bg:$("gBg"),dist:$("gDist"),track:$("gTrack"),prev:$("gPrev"),train:$("gTrain"),st:$("gSt"),pax:$("gPax"),fx:$("gFx")};
+function drawBg(){G.bg.innerHTML="";el("rect",{x:-2000,y:-2000,width:5000,height:5000,fill:"#f3efe6"},G.bg);
+ el("path",{d:"M-300,395 C120,330 330,470 520,462 S880,470 1300,430",fill:"none",stroke:"#cfe3ef",["stroke-width"]:46,["stroke-linecap"]:"round"},G.bg);
+ el("path",{d:"M520,462 C470,600 520,720 480,780 S470,1000 520,1300",fill:"none",stroke:"#cfe3ef",["stroke-width"]:30,["stroke-linecap"]:"round"},G.bg);
+ const n=Math.min(120,Math.floor(S.riders/4));const r=rng(77);const open=Object.keys(POS).map(Number).filter(isOpen);
+ for(let i=0;i<n&&open.length;i++){const f=open[Math.floor(r()*open.length)],a=r()*Math.PI*2,d=48+r()*55;el("rect",{x:POS[f][0]+Math.cos(a)*d-5,y:POS[f][1]+Math.sin(a)*d-5,width:9+r()*6,height:9+r()*6,rx:2,fill:"#e2dbcc"},G.bg);}}
+function drawDistricts(){G.dist.innerHTML="";WORLDS.forEach((w,i)=>{const [x,y,ww,hh]=w.box,ws=worldState(i);const g=el("g",{},G.dist);
+ el("rect",{x,y,width:ww,height:hh,rx:26,fill:w.css,["fill-opacity"]:ws.unlocked?.06:.025,stroke:w.css,["stroke-opacity"]:ws.unlocked?.35:.15,["stroke-width"]:2,["stroke-dasharray"]:"8 8"},g);
+ const lab=el("g",{transform:`translate(${x+16},${y+10})`},g);
+ const txt=(ws.unlocked?"":"🔒 ")+w.name;const wpx=txt.length*10.5+40;
+ el("rect",{x:0,y:0,width:wpx,height:30,rx:15,fill:ws.unlocked?w.css:"#bbb"},lab);
+ el("text",{x:14,y:21,fill:"#fff","font-size":17,"font-weight":800},lab).textContent=txt;
+ if(ws.unlocked&&(ws.awake||ws.beaten)){const t=el("g",{transform:`translate(${wpx+8},0)`,"data-duel":i,style:"cursor:pointer"},lab);
+  el("rect",{x:0,y:0,width:ws.beaten?44:120,height:30,rx:15,fill:ws.beaten?"#fff":"#2b2b2b",stroke:"#2b2b2b","stroke-width":2,class:ws.beaten?"":"pulse"},t);
+  el("text",{x:10,y:21,fill:ws.beaten?"#2b2b2b":"#fff","font-size":16,"font-weight":800},t).textContent=ws.beaten?"✔🎫":"🎫 Contrôle !";}});}
+function nbrs(f){return LINKS.filter(L=>S.links[L.key]&&(L.a===f||L.b===f)).map(L=>L.a===f?L.b:L.a);}
+function drawTracks(){G.track.innerHTML="";for(const L of LINKS){if(!S.links[L.key]&&!(PENDING&&PENDING.key===L.key))continue;const p=routePts(POS[L.a],POS[L.b]),c=lineOf(L.a).css;
+ el("polyline",{points:ptsStr(p),fill:"none",stroke:c,"stroke-width":15,"stroke-linecap":"round","stroke-linejoin":"round",...(S.links[L.key]?{}:{"stroke-dasharray":"2 22","stroke-width":13})},G.track);}}
+function drawStations(){G.st.innerHTML="";const due=new Set(dueList());
+ for(const k in POS){const f=+k,[x,y]=POS[f],s=FS(f),open=s.forged,w=lineOf(f),unl=lineUnlocked(f);const g=el("g",{transform:`translate(${x},${y})`,"data-st":f,style:"cursor:pointer"},G.st);
+  const inter=open&&nbrs(f).length>=2;
+  if(due.has(f))el("circle",{r:R0+14,fill:"none",stroke:"#e8473d","stroke-width":5,class:"pulse"},g);
+  if(PAXN(f)>=7)el("circle",{r:R0+9,fill:"#f6a623","fill-opacity":.35,class:"pulse"},g);
+  const sw=open?6:4,fill=open?"#fff":"#e7e2d7",stroke=open?"#2b2b2b":unl?"#b3ab9b":"#d0c9bb";
+  const shape=(r,extra)=>FICHES[f].t==="D"?el("circle",{r,fill,stroke,"stroke-width":sw,...extra},g):el("rect",{x:-r,y:-r,width:2*r,height:2*r,rx:4,fill,stroke,"stroke-width":sw,...extra},g);
+  if(inter)shape(R0+8,{});
+  shape(R0,open?{}:{"stroke-dasharray":"6 5"});
+  el("text",{y:6,"text-anchor":"middle","font-size":18,"font-weight":800,fill:open?"#2b2b2b":unl?"#8a8273":"#c5bdae"},g).textContent=f;
+  if(!open&&unl){for(let i=0;i<4;i++)el("circle",{cx:-15+i*10,cy:R0+12,r:3.5,fill:s.pass>i+1?w.css:"#cfc8b8"},g);}
+  if(due.has(f)){const b=el("g",{transform:`translate(${R0},${-R0})`},g);el("circle",{r:11,fill:"#e8473d"},b);el("text",{y:5,"text-anchor":"middle",fill:"#fff","font-size":15,"font-weight":900},b).textContent="!";}
+  if(SEL===f)el("circle",{r:R0+12,fill:"none",stroke:w.css,"stroke-width":4},g);}}
+/* ---------- voyageurs et trains ---------- */
+const PAX={};const PAXN=f=>(PAX[f]||[]).length;let paxDirty=true;
+function drawPax(){if(!paxDirty)return;paxDirty=false;G.pax.innerHTML="";for(const k in PAX){const f=+k,q=PAX[f];if(!q.length)continue;const [x,y]=POS[f];
+ const right=x<900;q.slice(0,6).forEach((d,i)=>{const cx=x+(right?1:-1)*(R0+18+i*22),cy=y-R0;const sh=FICHES[d].t==="D"?el("circle",{cx,cy,r:9.5,fill:"#2b2b2b"},G.pax):el("rect",{x:cx-9,y:cy-9,width:18,height:18,rx:3,fill:"#2b2b2b"},G.pax);
+  el("text",{x:cx,y:cy+4,"text-anchor":"middle","font-size":11,"font-weight":800,fill:"#fff"},G.pax).textContent=d;});
+ if(q.length>6)el("text",{x:x+(right?1:-1)*(R0+18+6*22),y:y-R0+5,"text-anchor":"middle","font-size":13,"font-weight":800,fill:"#2b2b2b"},G.pax).textContent="+"+(q.length-6);}}
+const TRAINS={};
+function addTrain(L){if(TRAINS[L.key])return;const p=routePts(POS[L.a],POS[L.b]);const g=el("g",{},G.train);
+ const body=el("rect",{x:-19,y:-10,width:38,height:20,rx:6,fill:lineOf(L.a).css,stroke:"#fff","stroke-width":2},g);const dots=el("g",{},g);
+ TRAINS[L.key]={L,p,len:polyLen(p),d:Math.random()*polyLen(p),dir:1,wait:0,load:[],g,dots};}
+function exchange(T,at){const other=at===T.L.a?T.L.b:T.L.a;let n=0;
+ T.load=T.load.filter(d=>{if(d===at){S.riders++;n++;return false;}return true;});
+ const q=PAX[at]||[];for(let i=0;i<q.length&&T.load.length<6;){if(q[i]===other){T.load.push(q[i]);q.splice(i,1);paxDirty=true;}else i++;}
+ if(n){SND.plink();riderMilestone(n);}T.dots.innerHTML="";T.load.forEach((d,i)=>el("circle",{cx:-10+(i%3)*10,cy:i<3?-3:4,r:2.6,fill:"#fff"},T.dots));}
+let lastMilestone=0;
+function riderMilestone(n){updateScore();const m=Math.floor(S.riders/25);if(m>lastMilestone){lastMilestone=m;toast(`🏙️ La ville grandit ! ${m*25} voyageurs transportés.`);drawBg();save();}else if(S.riders%5===0)save();}
+let spawnT=2;
+function spawn(dt){spawnT-=dt;if(spawnT>0)return;spawnT=2+Math.random()*3;
+ const cand=Object.keys(POS).map(Number).filter(f=>isOpen(f)&&nbrs(f).length&&PAXN(f)<9);if(!cand.length)return;
+ const f=cand[Math.random()*cand.length|0],nb=nbrs(f),d=nb[Math.random()*nb.length|0];(PAX[f]||(PAX[f]=[])).push(d);paxDirty=true;
+ if(PAXN(f)===7){toast(`Station ${f} surchargée. Les trains vont passer !`);drawStations();}}
+/* ---------- tracé au doigt ---------- */
+let DR=null,SEL=null,PENDING=null;
+function svgPt(e){const p=SVG.createSVGPoint();p.x=e.clientX;p.y=e.clientY;return p.matrixTransform(SVG.getScreenCTM().inverse());}
+function stationAt(p,r=42){let best=null,bd=r;for(const k in POS){const d=Math.hypot(POS[k][0]-p.x,POS[k][1]-p.y);if(d<bd){bd=d;best=+k;}}return best;}
+SVG.addEventListener("pointerdown",e=>{if(!started||panelOpen)return;AU.init();AU.resume();try{SVG.setPointerCapture(e.pointerId)}catch(_){}const p=svgPt(e);DR={s:stationAt(p),x0:e.clientX,y0:e.clientY,mv:false,tgt:null,id:e.pointerId,target:e.target};});
+SVG.addEventListener("pointermove",e=>{if(!DR||e.pointerId!==DR.id)return;if(!DR.mv&&Math.hypot(e.clientX-DR.x0,e.clientY-DR.y0)>10)DR.mv=true;if(!DR.mv)return;
+ G.prev.innerHTML="";if(!DR.s||!isOpen(DR.s))return;const p=svgPt(e);let t=stationAt(p,40);if(t===DR.s)t=null;DR.tgt=t;
+ const end=t?POS[t]:[p.x,p.y];el("polyline",{points:ptsStr(routePts(POS[DR.s],end)),fill:"none",stroke:lineOf(DR.s).css,"stroke-width":13,"stroke-linecap":"round","stroke-linejoin":"round","stroke-opacity":.6,"stroke-dasharray":"18 10"},G.prev);
+ if(t)el("circle",{cx:POS[t][0],cy:POS[t][1],r:R0+12,fill:"none",stroke:lineOf(DR.s).css,"stroke-width":4},G.prev);});
+const endDR=e=>{if(!DR||e.pointerId!==DR.id)return;const d=DR;DR=null;G.prev.innerHTML="";if(e.type!=="pointerup")return;
+ if(d.mv){if(d.s&&d.tgt)tryLink(d.s,d.tgt);else if(d.s&&!isOpen(d.s))toast(`Ouvre d'abord la station ${d.s}.`);return;}
+ const du=d.target&&d.target.closest&&d.target.closest("[data-duel]");if(du){startBoss(+du.getAttribute("data-duel"));return;}
+ if(d.s)tapStation(d.s);};
+SVG.addEventListener("pointerup",endDR);SVG.addEventListener("pointercancel",endDR);
+function crumble(a,b){const p=routePts(POS[a],POS[b]),L=polyLen(p),g=el("g",{},G.fx);const n=Math.max(3,Math.floor(L/20));
+ for(let i=0;i<=n;i++){const [x,y]=pointAt(p,L*i/n);const r=el("rect",{x:x-7,y:y-7,width:14,height:14,rx:2,fill:"#9a9182",class:"crumb",style:`animation-delay:${i*25}ms;transform-box:fill-box;transform-origin:center`},g);}
+ SND.crumble();setTimeout(()=>g.remove(),1600);}
+function tryLink(a,b){if(!lineUnlocked(a)||!lineUnlocked(b))return toast("Cette ligne est fermée.");
+ if(!isOpen(b))return toast(`Ouvre d'abord la station ${b}.`);
+ const L=findLink(a,b);if(L&&S.links[L.key])return toast(`Les stations ${a} et ${b} sont déjà reliées.`);
+ if(!L){crumble(a,b);S.stats.badLinks++;save();return toast(`La voie s'effondre. Les stations ${a} et ${b} ne sont pas reliées directement.<br>Cherche un mot en commun ou une phrase jumelle.`,4500);}
+ PENDING=L;drawTracks();const p=routePts(POS[L.a],POS[L.b]);for(let i=0;i<6;i++)SND.lay(i);setTimeout(()=>openLink(L),350);}
+function redraw(){drawBg();drawDistricts();drawTracks();drawStations();paxDirty=true;drawPax();updateScore();}
+/* ---------- boucle ---------- */
+let last=performance.now();const FPS={frames:[]};
+function loop(now){requestAnimationFrame(loop);const dt=Math.max(0,Math.min(.05,(now-last)/1000));last=now;FPS.frames.push(dt);if(FPS.frames.length>90)FPS.frames.shift();
+ if(started)spawn(dt);
+ for(const k in TRAINS){const T=TRAINS[k];if(T.wait>0){T.wait-=dt;}else{const m=Math.min(R0+20,T.len/2-1);T.d+=T.dir*dt*120;if(T.d>=T.len-m){T.d=T.len-m;T.dir=-1;T.wait=.9;exchange(T,T.L.b);}else if(T.d<=m){T.d=m;T.dir=1;T.wait=.9;exchange(T,T.L.a);}}
+  const [x,y,a]=pointAt(T.p,T.d);T.g.setAttribute("transform",`translate(${x.toFixed(1)},${y.toFixed(1)}) rotate(${(a*180/Math.PI).toFixed(1)})`);}
+ drawPax();}
+
+/* ================= INTERFACE ================= */
+let started=false,panelOpen=false;
+const PANELS=["forge","link","duel","plan","card","gate","parent","pop"];
+function openPanel(id){$(id).classList.add("on");$(id).scrollTop=0;panelOpen=true;}
+function closePanel(id){$(id).classList.remove("on");panelOpen=PANELS.some(p=>$(p).classList.contains("on"));if(id==="link")linkClosed();if(id==="forge")FG.f=null;updateHUD();}
+document.querySelectorAll("[data-close]").forEach(b=>b.addEventListener("click",()=>{SND.click();closePanel(b.dataset.close)}));
+let toastT=0;function toast(msg,ms=2800){const t=$("toast");t.innerHTML=msg;t.classList.add("on");clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove("on"),ms);}
+function pop(title,html,btns){$("popT").innerHTML=title;$("popB").innerHTML=html;const r=$("popBtns");r.innerHTML="";
+ (btns||[{t:"OK"}]).forEach(b=>{const e=document.createElement("button");e.className="btn "+(b.cls||"dark");e.textContent=b.t;e.onclick=()=>{SND.click();closePanel("pop");if(b.fn)b.fn();};r.appendChild(e);});openPanel("pop");}
+const frDate=d=>d?d.slice(8,10)+"/"+d.slice(5,7):"·";
+const sicon=(f,big)=>`<span class="sicon ${FICHES[f].t}" style="border-color:${lineOf(f).css}${big?";width:44px;height:44px;font-size:17px":""}">${f}</span>`;
+function setLine(panel,f){const c=lineOf(f).css;$(panel).style.setProperty("--lc",c);const h=$(panel).querySelector(".phead");if(h)h.style.background=c;}
+/* barre de symboles */
+let lastFocus=null;document.addEventListener("focusin",e=>{if(e.target.matches("textarea,input.gap,input.txt"))lastFocus=e.target;});
+function symbar(elm,target){["°","÷","×","−","=","+","«","»","'"].forEach(s=>{const b=document.createElement("button");b.className="btn";b.textContent=s;b.type="button";
+ b.addEventListener("pointerdown",e=>e.preventDefault());
+ b.addEventListener("click",()=>{let t=lastFocus&&lastFocus.closest(".panel")===elm.closest(".panel")?lastFocus:$(target);if(!t||t.offsetParent===null)t=$(target);
+  const a=t.selectionStart??t.value.length,z=t.selectionEnd??a;const ins=(s==="«")?"« ":(s==="»")?" »":s;t.value=t.value.slice(0,a)+ins+t.value.slice(z);t.focus();try{t.setSelectionRange(a+ins.length,a+ins.length)}catch(_){}SND.click();});elm.appendChild(b);});}
+symbar($("fSym"),"fText");symbar($("dSym"),"dIn");
+/* ---------- HUD ---------- */
+function updateScore(){const open=Object.keys(POS).filter(f=>isOpen(+f)).length;$("score").textContent=`🧍 ${S.riders} voyageurs · 🚉 ${open}/22 stations ouvertes`;}
+function curLine(){for(let i=0;i<S.unlocked;i++){const ws=worldState(i);if(!ws.beaten)return i;}return Math.min(S.unlocked,WORLDS.length)-1;}
+function updateHUD(){const i=curLine(),w=WORLDS[i],ws=worldState(i);
+ $("stat").innerHTML=`<b style="color:${w.css}">● ${w.name}</b> · Stations ${ws.forged}/${ws.n} · Voies ${ws.links}/${ws.nl} · `+(ws.beaten?"✔ Contrôle réussi":ws.awake?"🎫 Le contrôleur t'attend":ws.forged<ws.n?"Touche une station grise":"Trace les voies avec ton doigt");
+ const ready=WORLDS.findIndex((_,k)=>{const s=worldState(k);return s.unlocked&&s.awake&&!s.beaten;});
+ $("bDuel").classList.toggle("hide",ready<0);if(ready>=0){$("bDuel").textContent=`🎫 Contrôleur ${WORLDS[ready].name}`;$("bDuel").dataset.w=ready;}
+ const due=dueList().length;$("bRev").classList.toggle("hide",!due);$("revN").textContent=due;$("bSnd").textContent=S.sound?"🔊":"🔇";updateScore();}
+$("bSnd").onclick=()=>{S.sound=!S.sound;save();updateHUD();SND.click();};
+$("bDuel").onclick=()=>{SND.click();startBoss(+$("bDuel").dataset.w)};
+$("bRev").onclick=()=>{SND.click();startReview()};
+$("bPlan").onclick=()=>{SND.click();openPlan()};
+$("bPar").onclick=()=>{SND.click();openGate()};
+/* ---------- toucher une station ---------- */
+function tapStation(f){SND.click();if(!lineUnlocked(f)){const i=FW[f];return toast(WORLDS[i].bonus?"🔒 Ligne bonus : passe le contrôle de la Ligne Triangle.":`🔒 ${WORLDS[i].name} est fermée. Passe d'abord le contrôle de la ${WORLDS[i-1].name}.`);}
+ if(!isOpen(f))return openForge(f,false);
+ const s=FS(f),due=dueList().includes(f);setLine("card",f);$("cIcon").outerHTML=`<span id="cIcon" class="sicon ${FICHES[f].t}">${f}</span>`;$("cTitle").textContent=`Station ${f} · ${FICHES[f].title}`;
+ $("cBody").innerHTML=`<p>${FICHES[f].t==="D"?"Définition":"Propriété"} · ${lineOf(f).name}</p><p>Maîtrise : <b>${LVNAME[s.level]}</b> · Prochaine révision : <b>${s.next<=today()?"aujourd'hui":frDate(s.next)}</b></p>`+
+  (due?`<p style="color:#c0392b;font-weight:700">🚨 Alerte : cette station doit être revue ce matin.</p>`:"")+`<p>Voies : ${nbrs(f).length?nbrs(f).map(n=>"station "+n).join(", "):"aucune pour l'instant. Glisse ton doigt vers une autre station."}</p>`+
+  `<div class="row"><button class="btn dark" id="cRev">✍️ ${due?"Lever l'alerte":"Réviser de mémoire"}</button></div>`;
+ $("cRev").onclick=()=>{closePanel("card");openForge(f,true);};openPanel("card");}
+/* ---------- NOUVELLE VOIE ---------- */
+let LK=null;
+function openLink(L){LK={L,step:1,done:false,wrong:0};setLine("link",L.a);
+ $("lkA").innerHTML=sicon(L.a,true);$("lkB").innerHTML=sicon(L.b,true);$("lkSeg").classList.remove("built");
+ $("lkNames").innerHTML=`Station ${L.a} · ${esc(FICHES[L.a].title)}<br>➜ Station ${L.b} · ${esc(FICHES[L.b].title)}`;
+ $("lkSlot").className="slot";$("lkSlot").innerHTML="Pose un panneau ici";
+ $("lkStep2").classList.add("hide");$("lkIn").value="";$("lkMsg").textContent="";$("lkMsg").className="msg";
+ const keys=Object.keys(LTYPES).sort(()=>Math.random()-.5);$("lkLabels").innerHTML=keys.map(k=>`<div class="lbl" data-t="${k}">${LTYPES[k].name}</div>`).join("");
+ $("lkLabels").querySelectorAll(".lbl").forEach(e=>setupDrag(e,$("lkSlot"),labelDrop));openPanel("link");}
+function setupDrag(elm,slot,onDrop){
+ elm.addEventListener("pointerdown",e=>{e.preventDefault();if(LK&&LK.step!==1)return;AU.init();const r=elm.getBoundingClientRect(),ghost=elm.cloneNode(true);ghost.classList.add("drag");
+  Object.assign(ghost.style,{left:r.left+"px",top:r.top+"px",width:r.width+"px"});document.body.appendChild(ghost);elm.classList.add("ghost");
+  const ox=e.clientX-r.left,oy=e.clientY-r.top;let moved=0;
+  const inSlot=ev=>{const s=slot.getBoundingClientRect();return ev.clientX>s.left-14&&ev.clientX<s.right+14&&ev.clientY>s.top-14&&ev.clientY<s.bottom+14;};
+  const mv=ev=>{ghost.style.left=(ev.clientX-ox)+"px";ghost.style.top=(ev.clientY-oy)+"px";moved+=1;slot.classList.toggle("hot",inSlot(ev));};
+  const up=ev=>{window.removeEventListener("pointermove",mv);window.removeEventListener("pointerup",up);window.removeEventListener("pointercancel",up);
+   ghost.remove();elm.classList.remove("ghost");slot.classList.remove("hot");
+   if(ev.type==="pointerup"&&inSlot(ev)&&moved>1)onDrop(elm);else if(moved<3){$("lkMsg").className="msg ko";$("lkMsg").textContent="Glisse le panneau jusqu'à la voie.";}};
+  window.addEventListener("pointermove",mv);window.addEventListener("pointerup",up);window.addEventListener("pointercancel",up);});}
+function labelDrop(elm){const t=elm.dataset.t,L=LK.L;
+ if(t===L.t){SND.good();LK.step=2;$("lkSlot").className="slot good";$("lkSlot").innerHTML=`<div class="lbl">${LTYPES[t].name}</div>`;elm.remove();
+  $("lkMsg").textContent="";$("lkStep2").classList.remove("hide");$("lkQ").textContent=linkQ(L);setTimeout(()=>$("lkIn").focus(),60);}
+ else{SND.bad();LK.wrong++;$("lkMsg").className="msg ko";$("lkMsg").innerHTML=`Pas tout à fait. ${LTYPES[t].why} Est-ce le cas ici ?`;}}
+const kwNorm=s=>stripAcc(String(s).toLowerCase()).replace(/[-']/g," ").replace(/[^a-z0-9° ]/g," ").replace(/\s+/g," ").trim();
+function linkAnswer(v){const L=LK.L,n=kwNorm(v);if(!n)return false;return L.exact?L.kw.some(k=>n===k):L.kw.some(k=>n.includes(kwNorm(k)));}
+$("lkOk").onclick=()=>{if(!LK||LK.step!==2)return;
+ if(linkAnswer($("lkIn").value)){const L=LK.L;LK.done=true;S.links[L.key]=today();save();PENDING=null;$("lkSeg").classList.add("built");SND.whistle();
+  setTimeout(()=>{closePanel("link");addTrain(L);redraw();const ws=worldState(L.w);toast(`🚆 Voie ouverte ! Voies ${ws.links}/${ws.nl}`);updateHUD();
+   if(ws.awake&&!ws.beaten)setTimeout(()=>{SND.alert();pop("🎫 Le contrôleur arrive !",`<p>Toute la ${esc(WORLDS[L.w].name)} est construite. Le contrôleur vérifie les billets.</p><p>Il te donne le titre ou le début d'une fiche. Tape toute la fiche avant le départ du train. Tu as 3 vies.</p>`,[{t:"🎫 Montrer mes billets",fn:()=>startBoss(L.w)},{t:"Plus tard",cls:""}]);},700);},500);}
+ else{SND.bad();LK.wrong++;$("lkMsg").className="msg ko";$("lkMsg").textContent="Ce n'est pas ça. Repense aux deux fiches, puis réessaie.";}};
+$("lkIn").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();$("lkOk").click();}});
+function linkClosed(){if(LK&&!LK.done&&PENDING){const L=PENDING;PENDING=null;drawTracks();crumble(L.a,L.b);}LK=null;}
+/* ---------- OUVRIR UNE STATION : FORGE DES MOTS ---------- */
+const FG={f:null,pass:1,practice:false,gaps:null,seed:0,res:false};
+const INSTR={1:"Passe 1 sur 4. Lis la fiche, puis recopie-la en entier.",2:"Passe 2 sur 4. Des cases sont vides. Tape les mots qui manquent. La barre d'espace passe à la case suivante.",3:"Passe 3 sur 4. Il manque beaucoup de mots. Courage !",4:"Passe 4 sur 4. Il ne reste que le titre. Tape toute la fiche de mémoire."};
+function openForge(f,practice){const s=FS(f);FG.f=f;FG.practice=practice;FG.pass=practice?4:s.pass;FG.seed=0;FG.gaps=null;setLine("forge",f);openPanel("forge");renderForge();}
+function wordTile(t,cls,extra=""){if(t.p)return t.d==="•"?'<span class="br"></span><span class="pun">•</span>':`<span class="pun">${esc(t.d)}</span>`;
+ let pre="",core=t.d,post="";const i=t.d.indexOf(t.c);if(!t.name&&i>=0){pre=t.d.slice(0,i);core=t.c;post=t.d.slice(i+t.c.length);}
+ return (pre?`<span class="pun">${esc(pre)}</span>`:"")+`<span class="tile ${cls}${t.o?" opt":""}" ${extra}>${esc(core)}</span>`+(post?`<span class="pun">${esc(post)}</span>`:"");}
+function renderForge(){const f=FG.f,F=FICHES[f];FG.res=false;
+ $("fIcon").className="sicon "+F.t;$("fIcon").textContent=f;$("fType").textContent=F.t==="D"?"Définition":"Propriété";
+ $("fTitle").textContent=FG.practice?`Station ${f} · ${F.title}`:`Ouvrir la station ${f}`;
+ $("fPasses").innerHTML=FG.practice?`<b>🎟️ Billet de révision. Tape la fiche de mémoire.</b>`:[1,2,3,4].map(k=>`<span class="pip ${k<FG.pass?"done":k===FG.pass?"cur":""}">${k}</span>`).join("")+` <b style="color:#666">${esc(lineOf(f).name)}</b>`;
+ $("fInstr").textContent=FG.practice?"Les fautes font revenir la station demain.":INSTR[FG.pass];
+ const T=REF[f];let html="";
+ if(FG.pass===1)html=`<div class="title4">${esc(F.title)}</div>`+T.map(t=>wordTile(t,"")).join("");
+ else if(FG.pass===2||FG.pass===3){if(!FG.gaps)FG.gaps=pickGaps(f,FG.pass,FG.seed);
+  html=`<div class="title4">${esc(F.title)}</div>`+T.map((t,i)=>{if(FG.gaps.has(i)){const w=Math.max(3,t.c.length)+1.5;return `<input class="gap" data-i="${i}" style="width:${w}ch" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">`;}return wordTile(t,"dim");}).join("");}
+ else html=`<div class="title4">« ${esc(F.title)} »</div><div style="color:#666">${F.t==="D"?"C'est une définition : une station ronde.":"C'est une propriété : une station carrée."}</div>`;
+ $("fBoard").innerHTML=html;
+ const typing=FG.pass===1||FG.pass===4;$("fTyping").classList.toggle("hide",!typing);$("fText").value="";
+ $("fMsg").textContent="";$("fMsg").className="msg";$("fGo").classList.remove("hide");$("fAgain").classList.add("hide");$("fNext").classList.add("hide");
+ const gaps=[...$("fBoard").querySelectorAll("input.gap")];
+ gaps.forEach((g,k)=>{const nx=()=>{if(gaps[k+1])gaps[k+1].focus();else $("fGo").focus();};
+  g.addEventListener("keydown",e=>{if(e.key===" "||e.key==="Enter"){e.preventDefault();if(e.key==="Enter"&&!gaps[k+1])$("fGo").click();else nx();}});
+  g.addEventListener("input",()=>{if(/\s$/.test(g.value)){g.value=g.value.trim();nx();}});});
+ const fe=typing?$("fText"):gaps[0];if(fe){try{fe.focus({preventScroll:true})}catch(_){}}}
+function resultHTML(ops){let k=0;return ops.map(o=>{const d=`style="animation-delay:${Math.min(k++,40)*40}ms"`;
+ if(o.k==="ok")return wordTile(o.r,"lit pop",d);
+ if(o.k==="mn")return `<span class="tile minor pop" ${d}>${esc(o.u.c)}<span class="mn">${esc(o.r.c)} · ${minorWhy(o.r,o.u)}</span></span>`;
+ if(o.k==="wr")return `<span class="tile wrong pop" ${d}><s>${esc(o.u.c)}</s><span class="rw">${esc(o.r.c)}</span></span>`;
+ if(o.k==="mi")return `<span class="tile miss pop" ${d}>${esc(o.r.c)}</span>`;
+ if(o.k==="ex")return `<span class="tile extra pop" ${d}><s>${esc(o.u.c)}</s></span>`;
+ if(o.k==="op")return `<span class="tile dim opt">${esc(o.r.c)}</span>`;
+ if(o.k==="st")return wordTile(o.r,"dim");if(o.k==="pu")return wordTile(o.r,"");return "";}).join(" ");}
+function playResultSounds(ops){let i=0;for(const o of ops){if(i>16)break;if(o.k==="ok"||o.k==="mn"){SND.tile(i);i++;}else if(o.k==="wr"||o.k==="mi"||o.k==="ex"){SND.miss(i);i++;}}}
+function checkForge(){if(FG.res)return;const f=FG.f,s=FS(f);let res;
+ if(FG.pass===2||FG.pass===3){const T=REF[f],ops=[];let err=0,minor=0;const inputs={};$("fBoard").querySelectorAll("input.gap").forEach(g=>inputs[g.dataset.i]=g.value);
+  T.forEach((t,i)=>{if(!FG.gaps.has(i)){ops.push({k:t.p?"pu":"st",r:t});return;}const u=tokenize(inputs[i]||"",true).filter(x=>!x.p);
+   if(!u.length){ops.push({k:"mi",r:t});err++;return;}const e=u.length===1?eqTok(t,u[0]):0;
+   if(e===2)ops.push({k:"ok",r:t});else if(e===1){ops.push({k:"mn",r:t,u:u[0]});minor++;}else{ops.push({k:"wr",r:t,u:{c:u.map(x=>x.c).join(" ")}});err++;}});
+  res={ops,err,minor,ok:err===0};}
+ else{const txt=$("fText").value;if(!txt.trim()){$("fMsg").className="msg ko";$("fMsg").textContent="Tape la fiche avant de composter.";return;}res=diff(REF[f],tokenize(txt,true));}
+ FG.res=true;$("fBoard").innerHTML=resultHTML(res.ops);$("fTyping").classList.add("hide");playResultSounds(res.ops);$("fGo").classList.add("hide");
+ s.minor+=res.minor;const mnote=res.minor?` Attention à ${res.minor} petite${res.minor>1?"s":""} faute${res.minor>1?"s":""} (contour orange).`:"";
+ if(FG.practice){schedule(f,res.ok);logEv(f,"revision-station",res.ok);if(!res.ok)s.errR+=1;save();
+  $("fMsg").className="msg "+(res.ok?"ok":"ko");$("fMsg").textContent=res.ok?"Parfait ! Alerte levée. La station reste ouverte."+mnote:`${res.err} erreur${res.err>1?"s":""}. Cette station reviendra demain.`;
+  $("fAgain").classList.remove("hide");$("fAgain").textContent="🔁 Réessayer";drawStations();updateHUD();return;}
+ if(res.ok){s.pass=FG.pass+1;save();drawStations();
+  if(s.pass>4)return stationOpened(f,mnote);
+  setTimeout(()=>SND.good(),450);$("fMsg").className="msg ok";$("fMsg").textContent="Parfait ! Tous les mots sont allumés."+mnote;$("fNext").classList.remove("hide");$("fNext").textContent=`Passe ${s.pass} ➜`;}
+ else{s.errF+=1;logEv(f,"ouverture-passe"+FG.pass,false);save();setTimeout(()=>SND.bad(),450);
+  $("fMsg").className="msg ko";$("fMsg").textContent=`${res.err} erreur${res.err>1?"s":""}. Les mots en vert sont les bons. Regarde-les, puis recommence la passe.`;$("fAgain").classList.remove("hide");$("fAgain").textContent="🔁 Recommencer la passe";}}
+$("fGo").onclick=checkForge;
+$("fText").addEventListener("keydown",e=>{if(e.key==="Enter"&&(e.metaKey||e.ctrlKey)){e.preventDefault();checkForge();}});
+$("fAgain").onclick=()=>{SND.click();renderForge();};
+$("fNext").onclick=()=>{SND.click();FG.pass=FS(FG.f).pass;FG.gaps=null;renderForge();};
+function stationOpened(f,mnote){const s=FS(f);s.forged=true;s.forgedOn=today();s.level=0;s.next=addDays(1);s.last=today();logEv(f,"ouverture",true);save();
+ closePanel("forge");SND.chime();redraw();
+ const [x,y]=POS[f];const ring=el("circle",{cx:x,cy:y,r:R0,fill:"none",stroke:lineOf(f).css,"stroke-width":6},G.fx);let t0=performance.now();(function an(){const k=(performance.now()-t0)/700;if(k>1){ring.remove();return;}ring.setAttribute("r",R0+k*60);ring.setAttribute("stroke-opacity",1-k);requestAnimationFrame(an);})();
+ const ws=worldState(FW[f]);
+ pop("🚉 Station ouverte !",`<div style="display:flex;gap:14px;align-items:center">${sicon(f,true)}<div><p><b>Station ${f} · ${esc(FICHES[f].title)}</b></p><p>Elle reviendra demain au service du matin.${mnote||""}</p></div></div>`+
+  (ws.forged===ws.n?`<p>🚧 Toutes les stations de la ${esc(WORLDS[FW[f]].name)} sont ouvertes. Glisse ton doigt d'une station à une autre pour tracer les voies.</p>`:ws.forged>=2&&ws.links<ws.nl?`<p>Astuce : tu peux déjà tracer une voie entre deux stations ouvertes.</p>`:""),[{t:"En voiture !"}]);updateHUD();}
+/* ---------- CONTRÔLEUR ET SERVICE DU MATIN ---------- */
+const DU={on:false,mode:"boss",wi:0,queue:[],hearts:3,hp:0,hpMax:0,cur:null,t0:0,tLen:0,paused:true,lastTick:0,wins:0,fails:0,iv:0};
+const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]];}return a;};
+function startBoss(wi){const ws=worldState(wi);if(!ws.unlocked)return;if(!ws.awake)return toast("Le contrôleur arrive quand toute la ligne est construite.");
+ Object.assign(DU,{on:true,mode:"boss",wi,queue:shuffle(WORLDS[wi].fiches),hearts:3,wins:0,fails:0});DU.hp=DU.hpMax=DU.queue.length;
+ $("dHead").textContent=`🎫 Contrôle des billets · ${WORLDS[wi].name}`;$("dHeadBar").style.background=WORLDS[wi].css;$("dHearts").classList.remove("hide");$("dTime").classList.remove("hide");
+ SND.alert();openPanel("duel");nextRound();}
+function startReview(){const q=dueList();if(!q.length)return toast("Rien à revoir ce matin. Bravo !");
+ Object.assign(DU,{on:true,mode:"rev",wi:0,queue:q.slice(),hearts:3,wins:0,fails:0,hp:q.length,hpMax:q.length,done:new Set()});
+ $("dHead").textContent=`☀️ Service du matin · ${q.length} station${q.length>1?"s":""} en alerte`;$("dHeadBar").style.background="#e0a800";$("dHearts").classList.add("hide");$("dTime").classList.add("hide");openPanel("duel");nextRound();}
+function firstWords(f){return REF[f].filter(t=>!t.p&&!t.o).slice(0,3).map(t=>t.d.replace(/[:,.]$/,"")).join(" ").replace(/' /g,"'");}
+function nextRound(){
+ if(DU.mode==="boss"&&DU.hp<=0)return bossWin();
+ if(DU.mode==="rev"&&!DU.queue.length)return reviewEnd();
+ DU.cur=DU.queue.shift();const f=DU.cur,F=FICHES[f];const useStart=DU.mode==="boss"&&Math.random()<.5;
+ $("dBubble").innerHTML=(DU.mode==="boss"?"🧑‍✈️ ":"🚨 ")+(useStart?`Billet pour la station ${f} : « ${esc(firstWords(f))} … »<small>Tape toute la fiche, du premier mot au dernier.</small>`:`Billet pour la station ${f} : « ${esc(F.title)} »<small>${F.t==="D"?"Une définition.":"Une propriété."} Tape toute la fiche.</small>`);
+ $("dHearts").textContent="❤️".repeat(DU.hearts)+"🤍".repeat(3-DU.hearts);
+ $("dCount").textContent=DU.mode==="boss"?`Billets contrôlés : ${DU.hpMax-DU.hp}/${DU.hpMax}`:`Reste : ${DU.queue.length+1}`;
+ $("dIn").value="";$("dIn").classList.remove("hide");$("dSym").classList.remove("hide");$("dRes").classList.add("hide");$("dMsg").textContent="";$("dMsg").className="msg";
+ $("dGo").classList.remove("hide");$("dNext").classList.add("hide");
+ DU.tLen=DU.mode==="boss"?(20+5*reqWords(f))*1000:0;DU.t0=performance.now();DU.paused=false;DU.lastTick=0;
+ clearInterval(DU.iv);if(DU.mode==="boss")DU.iv=setInterval(duelTick,100);duelTick();
+ try{$("dIn").focus({preventScroll:true})}catch(_){}}
+function duelTick(){if(DU.paused||DU.mode!=="boss")return;const left=Math.max(0,DU.tLen-(performance.now()-DU.t0)),fr=left/DU.tLen;
+ const fill=$("dTime").querySelector(".fill");fill.style.width=(fr*100)+"%";fill.classList.toggle("low",fr<.25);$("dTime").querySelector(".train").style.left=(Math.max(3,fr*100))+"%";
+ const sec=Math.ceil(left/1000);if(sec<=10&&sec!==DU.lastTick&&left>0){DU.lastTick=sec;SND.tick();}if(left<=0)duelAnswer(true);}
+function duelAnswer(timeout){if(DU.paused)return;DU.paused=true;clearInterval(DU.iv);const f=DU.cur,s=FS(f);
+ const res=diff(REF[f],tokenize($("dIn").value||"",true));const ok=!timeout&&res.ok;
+ $("dRes").innerHTML=resultHTML(res.ops);$("dRes").style.setProperty("--lc",lineOf(f).css);$("dRes").classList.remove("hide");$("dIn").classList.add("hide");$("dSym").classList.add("hide");$("dGo").classList.add("hide");$("dNext").classList.remove("hide");
+ if(DU.mode==="boss"){
+  if(ok){DU.hp--;DU.wins++;SND.hit();$("dMsg").className="msg ok";$("dMsg").textContent=`✔ Billet valide !${res.minor?" Attention aux petites fautes en orange.":""}`;logEv(f,"controleur",true);}
+  else{DU.hearts--;DU.fails++;SND.hurt();s.errB+=1;schedule(f,false);logEv(f,"controleur",false);DU.queue.splice(Math.min(1,DU.queue.length),0,f);
+   $("dMsg").className="msg ko";$("dMsg").textContent=(timeout?"🚆 Le train est parti ! ":"")+"Tu perds une vie. Les mots en vert sont les bons. Ce billet va revenir.";}
+  $("dHearts").textContent="❤️".repeat(Math.max(0,DU.hearts))+"🤍".repeat(3-Math.max(0,DU.hearts));$("dCount").textContent=`Billets contrôlés : ${DU.hpMax-DU.hp}/${DU.hpMax}`;
+  DU.lost=DU.hearts<=0;$("dNext").textContent=DU.lost?"Continuer ➜":DU.hp<=0?"🏆 Fin du contrôle ➜":"Billet suivant ➜";}
+ else{schedule(f,ok);logEv(f,"service-matin",ok);if(ok){SND.good();DU.wins++;$("dMsg").className="msg ok";$("dMsg").textContent=`Alerte levée ! Prochaine révision : ${frDate(FS(f).next)}.`;}
+  else{SND.bad();DU.fails++;s.errR+=1;if(!DU.done.has(f)){DU.done.add(f);DU.queue.push(f);}$("dMsg").className="msg ko";$("dMsg").textContent=`${res.err} erreur${res.err>1?"s":""}. Lis bien les mots en vert. Elle revient à la fin, puis demain.`;}
+  $("dNext").textContent=DU.queue.length?"Station suivante ➜":"Terminer ➜";drawStations();}
+ save();updateHUD();}
+$("dGo").onclick=()=>{if(!$("dIn").value.trim()){$("dMsg").className="msg ko";$("dMsg").textContent="Tape la fiche d'abord.";return;}duelAnswer(false);};
+$("dNext").onclick=()=>{SND.click();if(DU.mode==="boss"&&DU.lost)return bossLose();nextRound();};
+$("dQuit").onclick=()=>{SND.click();clearInterval(DU.iv);DU.paused=true;DU.on=false;closePanel("duel");if(DU.mode==="boss")toast("Tu as quitté le contrôle. Reviens quand tu veux !");};
+function bossWin(){clearInterval(DU.iv);DU.on=false;closePanel("duel");const w=WORLDS[DU.wi];S.boss[w.id]=today();
+ const before=S.unlocked;S.unlocked=Math.min(WORLDS.length,Math.max(S.unlocked,DU.wi+2));save();SND.win();redraw();updateHUD();
+ const nx=WORLDS[DU.wi+1];const opened=S.unlocked>before&&nx;
+ pop("🏆 Contrôle réussi !",`<p>Tous tes billets de la ${esc(w.name)} sont valides.</p>`+(opened?`<p>🚇 La <b>${esc(nx.name)}</b> est ouverte !</p>`:"")+`<p>📖 Les textes de cette ligne sont maintenant lisibles dans le Plan.</p>`+(DU.fails?`<p>Les billets ratés reviendront demain au service du matin.</p>`:""),[{t:"Super !"}]);}
+function bossLose(){clearInterval(DU.iv);DU.on=false;closePanel("duel");SND.lose();
+ pop("🚆 Le train est parti sans toi",`<p>Ce n'est pas grave. Les billets ratés sont marqués.</p><p>Révise ces stations en les touchant, puis rappelle le contrôleur.</p>`,[{t:"OK"}]);}
+function reviewEnd(){DU.on=false;closePanel("duel");SND.win();pop("☀️ Service du matin terminé",`<p>${DU.wins} alerte${DU.wins>1?"s":""} levée${DU.wins>1?"s":""}, ${DU.fails} à retravailler.</p><p>🎤 Maintenant, récite une fiche à voix haute à papa.</p>`,[{t:"OK"}]);updateHUD();drawStations();}
+$("dIn").addEventListener("keydown",e=>{if(e.key==="Enter"&&(e.metaKey||e.ctrlKey)){e.preventDefault();$("dGo").click();}});
+/* ---------- PLAN ---------- */
+function openPlan(){$("planBody").innerHTML=WORLDS.map((w,i)=>{const ws=worldState(i);return `<div class="ln"><i style="background:${w.css}"></i>${esc(w.name)} ${ws.unlocked?"":"🔒"}${ws.beaten?" ✔":""}</div>`+
+ w.fiches.map(f=>{const o=isOpen(f);return `<button class="st ${o?"":"closed"}" data-f="${f}">${sicon(f)} <span>${esc(FICHES[f].title)}</span> <small style="margin-left:auto;color:#888">${o?"ouverte":FS(f).pass>1?"passe "+FS(f).pass+"/4":"fermée"}</small></button>`;}).join("");}).join("");
+ $("planText").innerHTML="";$("planBody").querySelectorAll("[data-f]").forEach(b=>b.onclick=()=>{const f=+b.dataset.f;SND.click();
+  $("planText").innerHTML=S.boss[lineOf(f).id]?`<div class="ftext"><b>Station ${f} · ${esc(FICHES[f].title)}</b><br>${ficheHTML(f)}</div>`:`<div class="ftext">🔒 Le texte de la station ${f} s'affiche après avoir passé le contrôle de la ${esc(lineOf(f).name)}.</div>`;
+  $("planText").scrollIntoView({block:"nearest"});});openPanel("plan");}
+/* ---------- ESPACE PARENT ---------- */
+let GATE=null;
+function openGate(){const a=6+(Math.random()*4|0),b=6+(Math.random()*4|0);GATE=a*b;$("gQ").textContent=`Pour entrer, combien font ${a} × ${b} ?`;$("gIn").value="";$("gMsg").textContent="";openPanel("gate");setTimeout(()=>$("gIn").focus(),60);}
+$("gOk").onclick=()=>{if(+$("gIn").value.trim()===GATE){closePanel("gate");openParent();}else{SND.bad();$("gMsg").textContent="Ce n'est pas le bon résultat.";}};
+$("gIn").addEventListener("keydown",e=>{if(e.key==="Enter")$("gOk").click();});
+let PSORT="weak";
+function openParent(){renderParent();openPanel("parent");}
+function renderParent(){const due=dueList();
+ const sum=WORLDS.map((w,i)=>{const ws=worldState(i);return `<div style="border-color:${w.css}"><span style="color:${w.css}">${esc(w.name)}</span><br>Stations ${ws.forged}/${ws.n}<br>Voies ${ws.links}/${ws.nl}<br>${ws.beaten?"🏆 Contrôle réussi le "+frDate(S.boss[w.id]):ws.unlocked?"Contrôle pas encore réussi":"🔒 Fermée"}</div>`;}).join("");
+ const all=[];WORLDS.forEach(w=>w.fiches.forEach(f=>all.push(f)));
+ const rows=all.slice().sort((a,b)=>{if(PSORT==="num")return a-b;const A=FS(a),B=FS(b);if(A.forged!==B.forged)return A.forged?-1:1;return A.level-B.level||(A.next||"").localeCompare(B.next||"")||a-b;});
+ const lv=s=>s.forged?`<span class="lv lv${s.level}">${LVNAME[s.level]}</span>`:`<span class="lv lvn">${s.pass>1?"Passe "+s.pass+"/4":"Fermée"}</span>`;
+ const RN={nonsu:"Non su",difficile:"Difficile",parcoeur:"Par cœur"};
+ const tr=rows.map(f=>{const s=FS(f),w=lineOf(f),pn=s.papa.length?s.papa[s.papa.length-1]:null;
+  return `<tr><td><div style="display:flex;gap:8px;align-items:center">${sicon(f)} ${esc(FICHES[f].title)}</div><button class="btn" data-txt="${f}" style="min-height:30px;font-size:13px;padding:3px 10px;margin-top:4px">📜 Texte</button></td><td style="color:${w.css};font-weight:800">${esc(w.short)}</td><td>${lv(s)}</td><td>${s.forged?(s.next<=today()?"<b>Aujourd'hui</b>":frDate(s.next)):"·"}</td><td>${s.errF}/${s.errB}/${s.errR}${s.minor?` <small>(${s.minor} accents)</small>`:""}</td><td>${frDate(s.last)}</td><td>${pn?`<span class="k-${pn.k}">${RN[pn.k]}</span> ${frDate(pn.d)}<br><small>${s.papa.length} note${s.papa.length>1?"s":""}</small>`:"·"}</td><td><button class="btn warn" data-n="${f}" data-k="nonsu">Non su</button><button class="btn sun" data-n="${f}" data-k="difficile">Difficile</button><button class="btn go" data-n="${f}" data-k="parcoeur">Par cœur</button></td></tr><tr class="hide" id="ptx${f}"><td colspan="8"><div class="ftext">${ficheHTML(f)}</div></td></tr>`;}).join("");
+ const net=WORLDS.map((w,i)=>`<b style="color:${w.css}">${esc(w.name)}</b> : `+LINKS.filter(l=>l.w===i).map(l=>`${S.links[l.key]?"🚆":"·"} ${l.a}➜${l.b} (${LTYPES[l.t].name.replace(/^\S+ /,"")})`).join(", ")).join("<br>");
+ $("pBody").innerHTML=`<p>Après une récitation orale, choisissez une note. Elle change la date de la prochaine révision : Non su revient demain, Difficile dans 3 jours, Par cœur de plus en plus tard (7, 14, 28 jours).</p>
+ <div class="sum">${sum}<div>☀️ À revoir aujourd'hui<br><span class="big1">${due.length}</span><br>${due.map(f=>"station "+f).join(", ")||"rien"}</div><div>Voies effondrées (mauvais liens)<br><span class="big1">${S.stats.badLinks||0}</span></div><div>Voyageurs transportés<br><span class="big1">${S.riders}</span></div></div>
+ <div class="row"><button class="btn ${PSORT==="weak"?"dark":""}" id="pSortW">Les moins sues d'abord</button><button class="btn ${PSORT==="num"?"dark":""}" id="pSortN">Par numéro</button></div>
+ <p style="font-size:14px;color:#666">Erreurs = passes ratées à l'ouverture / billets ratés au contrôle / révisions ratées.</p>
+ <div style="overflow-x:auto"><table class="pt"><tr><th>Station</th><th>Ligne</th><th>Maîtrise</th><th>Prochaine révision</th><th>Erreurs</th><th>Dernière fois</th><th>Note de papa</th><th>Noter la récitation</th></tr>${tr}</table></div>
+ <h3>🚇 Réseau</h3><p style="font-size:14px">${net}</p>
+ <div class="row"><button class="btn" id="pUnlock">Ouvrir toutes les lignes</button><button class="btn warn" id="pReset">Tout effacer</button></div>`;
+ $("pBody").querySelectorAll("[data-n]").forEach(b=>b.onclick=()=>{const f=+b.dataset.n;papaNote(f,b.dataset.k);SND.click();renderParent();updateHUD();drawStations();toast(`Note enregistrée pour la station ${f}. Prochaine révision : ${frDate(FS(f).next)}.`);});
+ $("pBody").querySelectorAll("[data-txt]").forEach(b=>b.onclick=()=>$("ptx"+b.dataset.txt).classList.toggle("hide"));
+ $("pSortW").onclick=()=>{PSORT="weak";renderParent()};$("pSortN").onclick=()=>{PSORT="num";renderParent()};
+ $("pUnlock").onclick=()=>{S.unlocked=WORLDS.length;save();redraw();updateHUD();renderParent();toast("Toutes les lignes sont ouvertes.");};
+ $("pReset").onclick=()=>{closePanel("parent");pop("Tout effacer ?","<p>Toute la progression sera perdue : stations, voies, contrôles, notes, voyageurs.</p>",[{t:"Oui, tout effacer",cls:"warn",fn:()=>{localStorage.removeItem(SKEY);location.reload();}},{t:"Annuler",cls:""}]);};}
+/* ---------- DÉMARRAGE ---------- */
+lastMilestone=Math.floor(S.riders/25);
+for(const L of LINKS)if(S.links[L.key])addTrain(L);
+redraw();updateHUD();requestAnimationFrame(loop);
+$("bPlay").onclick=()=>{AU.init();AU.resume();SND.open();$("title").classList.remove("on");$("hud").classList.remove("hide");started=true;
+ const open=Object.keys(POS).filter(f=>isOpen(+f)).length;if(!open)toast("🚉 Touche la station 5 pour l'ouvrir.",4500);else if(dueList().length)toast(`☀️ ${dueList().length} station${dueList().length>1?"s":""} en alerte ce matin.`,4000);};
+window.__mm={S:()=>S,FICHES,WORLDS,LINKS,REF,POS,FG,DU,worldState,dueList,startBoss,startReview,
+ stationScreen:f=>{const p=SVG.createSVGPoint();p.x=POS[f][0];p.y=POS[f][1];const q=p.matrixTransform(SVG.getScreenCTM());return [q.x,q.y];},
+ trains:()=>Object.keys(TRAINS),pax:()=>JSON.parse(JSON.stringify(PAX)),fps:()=>{const a=FPS.frames;return a.length?Math.round(a.length/a.reduce((x,y)=>x+y,0)):0;},
+ fastTime:k=>{for(const t in TRAINS)TRAINS[t].d=0;spawnT=0;}};
+
+</script></body></html>
