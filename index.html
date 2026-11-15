@@ -498,11 +498,37 @@ function worldState(i){const w=WORLDS[i];const forged=w.fiches.filter(f=>FS(f).f
 
 
 /* ================= SONS (WebAudio, calmes) ================= */
+/* ===== Déblocage du son sur iPad (partagé entre les jeux) =====
+   1. Le contexte audio est créé et relancé dans un vrai geste (touchend, pointerup, click...).
+   2. On le relance à chaque geste et au retour dans l'appli (iOS le met en « interrupted »).
+   3. Le bouton silencieux de l'iPad coupe WebAudio : session audio « playback » (Safari 16.4+),
+      sinon un petit son muet en boucle dans une balise audio. */
+window.__snd=window.__snd||{state:"none",count:{},log:[],played:0,unlocks:0};
+const IOSAU={get:null,el:null,unlocked:false,
+ session(){try{if(navigator.audioSession&&navigator.audioSession.type!=="playback")navigator.audioSession.type="playback";}catch(e){}},
+ setup(get){this.get=get;this.session();
+  ["touchstart","touchend","pointerdown","pointerup","mousedown","click","keydown"].forEach(ev=>document.addEventListener(ev,()=>this.unlock(),{capture:true,passive:true}));
+  document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")this.resume();});
+  window.addEventListener("pageshow",()=>this.resume());window.addEventListener("focus",()=>this.resume());},
+ watch(c){if(c&&!c.__w){c.__w=1;__snd.state=c.state;c.addEventListener("statechange",()=>{__snd.state=c.state;});}return c;},
+ resume(){const c=this.get&&this.get(false);if(!c||c.state==="running"||c.state==="closed")return;try{const p=c.resume();if(p&&p.then)p.then(()=>{__snd.state=c.state;},()=>{});}catch(e){}},
+ unlock(){const c=this.get&&this.get(true);if(!c)return;this.watch(c);this.session();
+  if(c.state!=="running"||!this.unlocked){this.resume();try{const b=c.createBuffer(1,1,22050),s=c.createBufferSource();s.buffer=b;s.connect(c.destination);s.start(0);this.unlocked=true;__snd.unlocks++;}catch(e){}}
+  if(!navigator.audioSession)this.silentLoop();},
+ silentURL(){const sr=8000,n=4000,b=new ArrayBuffer(44+n*2),v=new DataView(b);let o=0;const s=t=>{for(const ch of t)v.setUint8(o++,ch.charCodeAt(0));},u32=x=>{v.setUint32(o,x,true);o+=4;},u16=x=>{v.setUint16(o,x,true);o+=2;};
+  s("RIFF");u32(36+n*2);s("WAVE");s("fmt ");u32(16);u16(1);u16(1);u32(sr);u32(sr*2);u16(2);u16(16);s("data");u32(n*2);return URL.createObjectURL(new Blob([b],{type:"audio/wav"}));},
+ silentLoop(){try{if(!this.el){const a=document.createElement("audio");a.src=this.silentURL();a.loop=true;a.preload="auto";a.setAttribute("playsinline","");a.setAttribute("webkit-playsinline","");a.setAttribute("x-webkit-airplay","deny");this.el=a;}
+  if(this.el.paused){const p=this.el.play();if(p&&p.catch)p.catch(()=>{});}}catch(e){}},
+ /* compteur de débogage : chaque son demandé est compté dans window.__snd */
+ instrument(SND){Object.keys(SND).forEach(k=>{const f=SND[k];if(typeof f!=="function")return;SND[k]=function(...a){__snd.count[k]=(__snd.count[k]||0)+1;__snd.log.push(k);if(__snd.log.length>300)__snd.log.shift();return f.apply(this,a);};});return SND;}
+};
 const AU={ctx:null,master:null,
- init(){if(this.ctx)return;try{const C=window.AudioContext||window.webkitAudioContext;this.ctx=new C();this.master=this.ctx.createGain();this.master.gain.value=.45;this.master.connect(this.ctx.destination);}catch(e){}},
- resume(){if(this.ctx&&this.ctx.state!=="running")this.ctx.resume();},
- tone(f,d,type="sine",vol=.2,f2=null,delay=0){if(!this.ctx||!S.sound)return;const t=this.ctx.currentTime+delay,o=this.ctx.createOscillator(),g=this.ctx.createGain();o.type=type;o.frequency.setValueAtTime(f,t);if(f2)o.frequency.exponentialRampToValueAtTime(f2,t+d);g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(vol,t+.01);g.gain.exponentialRampToValueAtTime(.0001,t+d);o.connect(g);g.connect(this.master);o.start(t);o.stop(t+d+.03);},
- noise(d,vol=.2,freq=1200,type="bandpass",delay=0){if(!this.ctx||!S.sound)return;const t=this.ctx.currentTime+delay,len=Math.max(1,Math.floor(this.ctx.sampleRate*d)),b=this.ctx.createBuffer(1,len,this.ctx.sampleRate),a=b.getChannelData(0);for(let i=0;i<len;i++)a[i]=(Math.random()*2-1)*(1-i/len);const s=this.ctx.createBufferSource();s.buffer=b;const fl=this.ctx.createBiquadFilter();fl.type=type;fl.frequency.value=freq;const g=this.ctx.createGain();g.gain.value=vol;s.connect(fl);fl.connect(g);g.connect(this.master);s.start(t);}
+ init(){if(this.ctx)return;const C=window.AudioContext||window.webkitAudioContext;if(!C)return;try{this.ctx=new C({latencyHint:"interactive"});}catch(e){try{this.ctx=new C();}catch(e2){return;}}
+  const cp=this.ctx.createDynamicsCompressor();cp.threshold.value=-12;cp.ratio.value=5;this.master=this.ctx.createGain();this.master.gain.value=.75;this.master.connect(cp);cp.connect(this.ctx.destination);},
+ resume(){IOSAU.resume();},
+ ok(){const r=!!(this.ctx&&S.sound&&this.ctx.state==="running");if(r)__snd.played++;else if(this.ctx&&S.sound)IOSAU.resume();return r;},
+ tone(f,d,type="sine",vol=.2,f2=null,delay=0){if(!this.ok())return;const t=this.ctx.currentTime+delay,o=this.ctx.createOscillator(),g=this.ctx.createGain();o.type=type;o.frequency.setValueAtTime(f,t);if(f2)o.frequency.exponentialRampToValueAtTime(f2,t+d);g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(vol,t+.01);g.gain.exponentialRampToValueAtTime(.0001,t+d);o.connect(g);g.connect(this.master);o.start(t);o.stop(t+d+.03);},
+ noise(d,vol=.2,freq=1200,type="bandpass",delay=0){if(!this.ok())return;const t=this.ctx.currentTime+delay,len=Math.max(1,Math.floor(this.ctx.sampleRate*d)),b=this.ctx.createBuffer(1,len,this.ctx.sampleRate),a=b.getChannelData(0);for(let i=0;i<len;i++)a[i]=(Math.random()*2-1)*(1-i/len);const s=this.ctx.createBufferSource();s.buffer=b;const fl=this.ctx.createBiquadFilter();fl.type=type;fl.frequency.value=freq;const g=this.ctx.createGain();g.gain.value=vol;s.connect(fl);fl.connect(g);g.connect(this.master);s.start(t);}
 };
 const PENTA=[523,587,659,784,880,1047,1175,1319];
 let lastPlink=0;
@@ -523,8 +549,14 @@ const SND={
  hurt(){AU.tone(440,.15,"triangle",.12,300);AU.tone(330,.25,"triangle",.1,220,.12)},
  win(){[523,659,784,1047,784,1047,1319].forEach((f,i)=>AU.tone(f,.3,"sine",.12,null,i*.13))},
  lose(){[523,466,415,349].forEach((f,i)=>AU.tone(f,.35,"triangle",.1,null,i*.2))},
- alert(){AU.tone(880,.12,"sine",.08);AU.tone(660,.18,"sine",.08,null,.13)}
+ alert(){AU.tone(880,.12,"sine",.08);AU.tone(660,.18,"sine",.08,null,.13)},
+ nudge(){AU.tone(520,.08,"sine",.12);AU.tone(440,.1,"sine",.1,null,.08)},
+ locked(){AU.tone(300,.12,"triangle",.12);AU.tone(240,.18,"triangle",.1,null,.1)},
+ depart(){AU.tone(1568,.18,"sine",.1);AU.tone(1568,.35,"sine",.1,1480,.22);AU.noise(.8,.12,400,"lowpass",.3)},
+ unlock(){[523,659,784,1047,1319].forEach((f,i)=>AU.tone(f,.3,"sine",.12,null,i*.09));AU.tone(262,.8,"triangle",.08,null,.1)},
+ papa(){AU.tone(1047,.1,"sine",.1);AU.tone(1319,.18,"sine",.1,null,.08)}
 };
+IOSAU.setup(c=>{if(c)AU.init();return AU.ctx;});IOSAU.instrument(SND);
 /* ================= CARTE SVG ================= */
 const NS="http://www.w3.org/2000/svg",SVG=$("map");
 function el(tag,at,parent){const e=document.createElementNS(NS,tag);for(const k in at)e.setAttribute(k,at[k]);if(parent)parent.appendChild(e);return e;}
@@ -594,7 +626,7 @@ function spawn(dt){spawnT-=dt;if(spawnT>0)return;spawnT=2+Math.random()*3;
 let DR=null,SEL=null,PENDING=null;
 function svgPt(e){const p=SVG.createSVGPoint();p.x=e.clientX;p.y=e.clientY;return p.matrixTransform(SVG.getScreenCTM().inverse());}
 function stationAt(p,r=42){let best=null,bd=r;for(const k in POS){const d=Math.hypot(POS[k][0]-p.x,POS[k][1]-p.y);if(d<bd){bd=d;best=+k;}}return best;}
-SVG.addEventListener("pointerdown",e=>{if(!started||panelOpen)return;AU.init();AU.resume();try{SVG.setPointerCapture(e.pointerId)}catch(_){}const p=svgPt(e);DR={s:stationAt(p),x0:e.clientX,y0:e.clientY,mv:false,tgt:null,id:e.pointerId,target:e.target};});
+SVG.addEventListener("pointerdown",e=>{if(!started||panelOpen)return;IOSAU.unlock();try{SVG.setPointerCapture(e.pointerId)}catch(_){}const p=svgPt(e);DR={s:stationAt(p),x0:e.clientX,y0:e.clientY,mv:false,tgt:null,id:e.pointerId,target:e.target};});
 SVG.addEventListener("pointermove",e=>{if(!DR||e.pointerId!==DR.id)return;if(!DR.mv&&Math.hypot(e.clientX-DR.x0,e.clientY-DR.y0)>10)DR.mv=true;if(!DR.mv)return;
  G.prev.innerHTML="";if(!DR.s||!isOpen(DR.s))return;const p=svgPt(e);let t=stationAt(p,40);if(t===DR.s)t=null;DR.tgt=t;
  const end=t?POS[t]:[p.x,p.y];el("polyline",{points:ptsStr(routePts(POS[DR.s],end)),fill:"none",stroke:lineOf(DR.s).css,"stroke-width":13,"stroke-linecap":"round","stroke-linejoin":"round","stroke-opacity":.6,"stroke-dasharray":"18 10"},G.prev);
@@ -648,13 +680,13 @@ function updateHUD(){const i=curLine(),w=WORLDS[i],ws=worldState(i);
  const ready=WORLDS.findIndex((_,k)=>{const s=worldState(k);return s.unlocked&&s.awake&&!s.beaten;});
  $("bDuel").classList.toggle("hide",ready<0);if(ready>=0){$("bDuel").textContent=`🎫 Contrôleur ${WORLDS[ready].name}`;$("bDuel").dataset.w=ready;}
  const due=dueList().length;$("bRev").classList.toggle("hide",!due);$("revN").textContent=due;$("bSnd").textContent=S.sound?"🔊":"🔇";updateScore();}
-$("bSnd").onclick=()=>{S.sound=!S.sound;save();updateHUD();SND.click();};
+$("bSnd").onclick=()=>{S.sound=!S.sound;save();updateHUD();if(S.sound){IOSAU.unlock();SND.click();}};
 $("bDuel").onclick=()=>{SND.click();startBoss(+$("bDuel").dataset.w)};
 $("bRev").onclick=()=>{SND.click();startReview()};
 $("bPlan").onclick=()=>{SND.click();openPlan()};
 $("bPar").onclick=()=>{SND.click();openGate()};
 /* ---------- toucher une station ---------- */
-function tapStation(f){SND.click();if(!lineUnlocked(f)){const i=FW[f];return toast(WORLDS[i].bonus?"🔒 Ligne bonus : passe le contrôle de la Ligne Triangle.":`🔒 ${WORLDS[i].name} est fermée. Passe d'abord le contrôle de la ${WORLDS[i-1].name}.`);}
+function tapStation(f){SND.click();if(!lineUnlocked(f)){const i=FW[f];SND.locked();return toast(WORLDS[i].bonus?"🔒 Ligne bonus : passe le contrôle de la Ligne Triangle.":`🔒 ${WORLDS[i].name} est fermée. Passe d'abord le contrôle de la ${WORLDS[i-1].name}.`);}
  if(!isOpen(f))return openForge(f,false);
  const s=FS(f),due=dueList().includes(f);setLine("card",f);$("cIcon").outerHTML=`<span id="cIcon" class="sicon ${FICHES[f].t}">${f}</span>`;$("cTitle").textContent=`Station ${f} · ${FICHES[f].title}`;
  $("cBody").innerHTML=`<p>${FICHES[f].t==="D"?"Définition":"Propriété"} · ${lineOf(f).name}</p><p>Maîtrise : <b>${LVNAME[s.level]}</b> · Prochaine révision : <b>${s.next<=today()?"aujourd'hui":frDate(s.next)}</b></p>`+
@@ -671,7 +703,7 @@ function openLink(L){LK={L,step:1,done:false,wrong:0};setLine("link",L.a);
  const keys=Object.keys(LTYPES).sort(()=>Math.random()-.5);$("lkLabels").innerHTML=keys.map(k=>`<div class="lbl" data-t="${k}">${LTYPES[k].name}</div>`).join("");
  $("lkLabels").querySelectorAll(".lbl").forEach(e=>setupDrag(e,$("lkSlot"),labelDrop));openPanel("link");}
 function setupDrag(elm,slot,onDrop){
- elm.addEventListener("pointerdown",e=>{e.preventDefault();if(LK&&LK.step!==1)return;AU.init();const r=elm.getBoundingClientRect(),ghost=elm.cloneNode(true);ghost.classList.add("drag");
+ elm.addEventListener("pointerdown",e=>{e.preventDefault();if(LK&&LK.step!==1)return;IOSAU.unlock();const r=elm.getBoundingClientRect(),ghost=elm.cloneNode(true);ghost.classList.add("drag");
   Object.assign(ghost.style,{left:r.left+"px",top:r.top+"px",width:r.width+"px"});document.body.appendChild(ghost);elm.classList.add("ghost");
   const ox=e.clientX-r.left,oy=e.clientY-r.top;let moved=0;
   const inSlot=ev=>{const s=slot.getBoundingClientRect();return ev.clientX>s.left-14&&ev.clientX<s.right+14&&ev.clientY>s.top-14&&ev.clientY<s.bottom+14;};
@@ -741,10 +773,10 @@ function checkForge(){if(FG.res)return;const f=FG.f,s=FS(f);let res;
    if(!u.length){ops.push({k:"mi",r:t});err++;return;}const e=u.length===1?eqTok(t,u[0]):0;
    if(e===2)ops.push({k:"ok",r:t});else if(e===1){ops.push({k:"mn",r:t,u:u[0]});minor++;}else{ops.push({k:"wr",r:t,u:{c:u.map(x=>x.c).join(" ")}});err++;}});
   res={ops,err,minor,soft:[],ok:err===0};}
- else{const txt=$("fText").value;if(!txt.trim()){$("fMsg").className="msg ko";$("fMsg").textContent="Tape la fiche avant de composter.";return;}res=diff(REF[f],tokenize(txt,true));}
+ else{const txt=$("fText").value;if(!txt.trim()){$("fMsg").className="msg ko";$("fMsg").textContent="Tape la fiche avant de composter.";SND.nudge();return;}res=diff(REF[f],tokenize(txt,true));}
  FG.res=true;$("fBoard").innerHTML=resultHTML(res.ops);$("fTyping").classList.add("hide");playResultSounds(res.ops);$("fGo").classList.add("hide");
  s.minor+=res.minor;const mnote=res.minor?` Attention à ${res.minor} petite${res.minor>1?"s":""} faute${res.minor>1?"s":""} (contour orange).`:"";
- if(FG.practice){schedule(f,res.ok);logEv(f,"revision-station",res.ok);if(!res.ok)s.errR+=1;save();
+ if(FG.practice){setTimeout(()=>res.ok?SND.good():SND.bad(),450);schedule(f,res.ok);logEv(f,"revision-station",res.ok);if(!res.ok)s.errR+=1;save();
   $("fMsg").className="msg "+(res.ok?"ok":"ko");$("fMsg").textContent=res.ok?okMsg(res,"Parfait ! Alerte levée. La station reste ouverte."+mnote):koMsg(res,`${res.err} erreur${res.err>1?"s":""}. Cette station reviendra demain.`);
   $("fAgain").classList.remove("hide");$("fAgain").textContent="🔁 Réessayer";drawStations();updateHUD();return;}
  if(res.ok){s.pass=FG.pass+1;save();drawStations();
@@ -765,7 +797,7 @@ function stationOpened(f,mnote){const s=FS(f);s.forged=true;s.forgedOn=today();s
 /* ---------- CONTRÔLEUR ET SERVICE DU MATIN ---------- */
 const DU={on:false,mode:"boss",wi:0,queue:[],hearts:3,hp:0,hpMax:0,cur:null,t0:0,tLen:0,paused:true,lastTick:0,wins:0,fails:0,iv:0};
 const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]];}return a;};
-function startBoss(wi){const ws=worldState(wi);if(!ws.unlocked)return;if(!ws.awake)return toast("Le contrôleur arrive quand toute la ligne est construite.");
+function startBoss(wi){const ws=worldState(wi);if(!ws.unlocked)return;if(!ws.awake){SND.nudge();}if(!ws.awake)return toast("Le contrôleur arrive quand toute la ligne est construite.");
  Object.assign(DU,{on:true,mode:"boss",wi,queue:shuffle(WORLDS[wi].fiches),hearts:3,wins:0,fails:0});DU.hp=DU.hpMax=DU.queue.length;
  $("dHead").textContent=`🎫 Contrôle des billets · ${WORLDS[wi].name}`;$("dHeadBar").style.background=WORLDS[wi].css;$("dHearts").classList.remove("hide");$("dTime").classList.remove("hide");
  SND.alert();openPanel("duel");nextRound();}
@@ -793,7 +825,7 @@ function duelAnswer(timeout){if(DU.paused)return;DU.paused=true;clearInterval(DU
  $("dRes").innerHTML=resultHTML(res.ops);$("dRes").style.setProperty("--lc",lineOf(f).css);$("dRes").classList.remove("hide");$("dIn").classList.add("hide");$("dSym").classList.add("hide");$("dGo").classList.add("hide");$("dNext").classList.remove("hide");
  if(DU.mode==="boss"){
   if(ok){DU.hp--;DU.wins++;SND.hit();$("dMsg").className="msg ok";$("dMsg").textContent="✔ Billet valide !"+softNote(res)+`${res.minor?" Attention aux petites fautes en orange.":""}`;logEv(f,"controleur",true);}
-  else{DU.hearts--;DU.fails++;SND.hurt();s.errB+=1;schedule(f,false);logEv(f,"controleur",false);DU.queue.splice(Math.min(1,DU.queue.length),0,f);
+  else{DU.hearts--;DU.fails++;if(timeout)SND.depart();SND.hurt();s.errB+=1;schedule(f,false);logEv(f,"controleur",false);DU.queue.splice(Math.min(1,DU.queue.length),0,f);
    $("dMsg").className="msg ko";$("dMsg").textContent=(timeout?"🚆 Le train est parti ! ":koMsg(res,""))+"Tu perds une vie. Les mots en vert sont les bons. Ce billet va revenir.";}
   $("dHearts").textContent="❤️".repeat(Math.max(0,DU.hearts))+"🤍".repeat(3-Math.max(0,DU.hearts));$("dCount").textContent=`Billets contrôlés : ${DU.hpMax-DU.hp}/${DU.hpMax}`;
   DU.lost=DU.hearts<=0;$("dNext").textContent=DU.lost?"Continuer ➜":DU.hp<=0?"🏆 Fin du contrôle ➜":"Billet suivant ➜";}
@@ -801,12 +833,12 @@ function duelAnswer(timeout){if(DU.paused)return;DU.paused=true;clearInterval(DU
   else{SND.bad();DU.fails++;s.errR+=1;if(!DU.done.has(f)){DU.done.add(f);DU.queue.push(f);}$("dMsg").className="msg ko";$("dMsg").textContent=koMsg(res,`${res.err} erreur${res.err>1?"s":""}. Lis bien les mots en vert. Elle revient à la fin, puis demain.`);}
   $("dNext").textContent=DU.queue.length?"Station suivante ➜":"Terminer ➜";drawStations();}
  save();updateHUD();}
-$("dGo").onclick=()=>{if(!$("dIn").value.trim()){$("dMsg").className="msg ko";$("dMsg").textContent="Tape la fiche d'abord.";return;}duelAnswer(false);};
+$("dGo").onclick=()=>{if(!$("dIn").value.trim()){$("dMsg").className="msg ko";$("dMsg").textContent="Tape la fiche d'abord.";SND.nudge();return;}duelAnswer(false);};
 $("dNext").onclick=()=>{SND.click();if(DU.mode==="boss"&&DU.lost)return bossLose();nextRound();};
 $("dQuit").onclick=()=>{SND.click();clearInterval(DU.iv);DU.paused=true;DU.on=false;closePanel("duel");if(DU.mode==="boss")toast("Tu as quitté le contrôle. Reviens quand tu veux !");};
 function bossWin(){clearInterval(DU.iv);DU.on=false;closePanel("duel");const w=WORLDS[DU.wi];S.boss[w.id]=today();
  const before=S.unlocked;S.unlocked=Math.min(WORLDS.length,Math.max(S.unlocked,DU.wi+2));save();SND.win();redraw();updateHUD();
- const nx=WORLDS[DU.wi+1];const opened=S.unlocked>before&&nx;
+ const nx=WORLDS[DU.wi+1];const opened=S.unlocked>before&&nx;if(S.unlocked>before)setTimeout(()=>SND.unlock(),1500);
  pop("🏆 Contrôle réussi !",`<p>Tous tes billets de la ${esc(w.name)} sont valides.</p>`+(opened?`<p>🚇 La <b>${esc(nx.name)}</b> est ouverte !</p>`:"")+`<p>📖 Les textes de cette ligne sont maintenant lisibles dans le Plan.</p>`+(DU.fails?`<p>Les billets ratés reviendront demain au service du matin.</p>`:""),[{t:"Super !"}]);}
 function bossLose(){clearInterval(DU.iv);DU.on=false;closePanel("duel");SND.lose();
  pop("🚆 Le train est parti sans toi",`<p>Ce n'est pas grave. Les billets ratés sont marqués.</p><p>Révise ces stations en les touchant, puis rappelle le contrôleur.</p>`,[{t:"OK"}]);}
@@ -841,7 +873,7 @@ function renderParent(){const due=dueList();
  <div style="overflow-x:auto"><table class="pt"><tr><th>Station</th><th>Ligne</th><th>Maîtrise</th><th>Prochaine révision</th><th>Erreurs</th><th>Dernière fois</th><th>Note de papa</th><th>Noter la récitation</th></tr>${tr}</table></div>
  <h3>🚇 Réseau</h3><p style="font-size:14px">${net}</p>
  <div class="row"><button class="btn" id="pUnlock">Ouvrir toutes les lignes</button><button class="btn warn" id="pReset">Tout effacer</button></div>`;
- $("pBody").querySelectorAll("[data-n]").forEach(b=>b.onclick=()=>{const f=+b.dataset.n;papaNote(f,b.dataset.k);SND.click();renderParent();updateHUD();drawStations();toast(`Note enregistrée pour la station ${f}. Prochaine révision : ${frDate(FS(f).next)}.`);});
+ $("pBody").querySelectorAll("[data-n]").forEach(b=>b.onclick=()=>{const f=+b.dataset.n;papaNote(f,b.dataset.k);SND.papa();renderParent();updateHUD();drawStations();toast(`Note enregistrée pour la station ${f}. Prochaine révision : ${frDate(FS(f).next)}.`);});
  $("pBody").querySelectorAll("[data-txt]").forEach(b=>b.onclick=()=>$("ptx"+b.dataset.txt).classList.toggle("hide"));
  $("pSortW").onclick=()=>{PSORT="weak";renderParent()};$("pSortN").onclick=()=>{PSORT="num";renderParent()};
  $("pUnlock").onclick=()=>{S.unlocked=WORLDS.length;save();redraw();updateHUD();renderParent();toast("Toutes les lignes sont ouvertes.");};
@@ -850,7 +882,7 @@ function renderParent(){const due=dueList();
 lastMilestone=Math.floor(S.riders/25);
 for(const L of LINKS)if(S.links[L.key])addTrain(L);
 redraw();updateHUD();requestAnimationFrame(loop);
-$("bPlay").onclick=()=>{AU.init();AU.resume();SND.open();$("title").classList.remove("on");$("hud").classList.remove("hide");started=true;
+$("bPlay").onclick=()=>{IOSAU.unlock();SND.open();$("title").classList.remove("on");$("hud").classList.remove("hide");started=true;
  const open=Object.keys(POS).filter(f=>isOpen(+f)).length;if(!open)toast("🚉 Touche la station 5 pour l'ouvrir.",4500);else if(dueList().length)toast(`☀️ ${dueList().length} station${dueList().length>1?"s":""} en alerte ce matin.`,4000);};
 window.__mm={S:()=>S,FICHES,WORLDS,LINKS,REF,POS,FG,DU,tokenize,diff,pickGaps,softText,isFree,worldState,dueList,startBoss,startReview,
  stationScreen:f=>{const p=SVG.createSVGPoint();p.x=POS[f][0];p.y=POS[f][1];const q=p.matrixTransform(SVG.getScreenCTM());return [q.x,q.y];},
